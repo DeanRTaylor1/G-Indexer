@@ -1,9 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"log"
+	"sort"
+	"strings"
 	"unicode"
 
 	"os"
@@ -23,6 +27,20 @@ func (l *Lexer) trimLeft() {
 	}
 }
 
+func (l *Lexer) chop(n int) (token []rune) {
+	token = l.content[:n]
+	l.content = l.content[n:]
+	return token
+}
+
+func (l *Lexer) chopWhile(f func(rune) bool) (token []rune) {
+	n := 0
+	for n < len(l.content) && f(l.content[n]) {
+		n += 1
+	}
+	return l.chop(n)
+}
+
 func (l *Lexer) nextToken() []rune {
 
 	l.trimLeft()
@@ -32,28 +50,15 @@ func (l *Lexer) nextToken() []rune {
 		return nil
 	}
 	if unicode.IsNumber(l.content[0]) {
-		n := 0
-		for n < len(l.content) && (unicode.IsNumber(l.content[n])) {
-			n += 1
-		}
-		token := l.content[:n]
-		l.content = l.content[n:]
-
-		return token
+		return l.chopWhile(unicode.IsNumber)
 	}
 	if unicode.IsLetter(l.content[0]) {
-		n := 0
-		for n < len(l.content) && (unicode.IsLetter(l.content[n]) || unicode.IsNumber(l.content[n])) {
-			n += 1
-		}
-		token := l.content[:n]
-		l.content = l.content[n:]
+		return l.chopWhile(func(r rune) bool {
+			return unicode.IsLetter(r) || unicode.IsNumber(r)
+		})
 
-		return token
 	}
-	token := l.content[:1]
-	l.content = l.content[1:]
-	return token
+	return l.chop(1)
 }
 
 func (l *Lexer) next() ([]rune, error) {
@@ -92,43 +97,122 @@ func readEntireXMLFile(filePath string) string {
 	}
 	return content
 }
+func mapToSortedSlice(m map[string]int) (stats []struct {
+	token string
+	freq  int
+}) {
+	for k, v := range m {
+		stats = append(stats, struct {
+			token string
+			freq  int
+		}{k, v})
+	}
+	sort.Slice(stats, func(i, j int) bool { return stats[i].freq > stats[j].freq })
+
+	return stats
+}
+
+func mapToJSON(m TermFreqIndex) string {
+	b, err := json.Marshal(m)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+  JSONToFile(b)
+	return string(b)
+}
+
+func JSONToFile(j []byte) {
+	f, err := os.Create("index.json")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	l, err := f.Write(j)
+	if err != nil {
+		fmt.Println(err)
+		f.Close()
+		return
+	}
+	fmt.Println(l, "bytes written successfully")
+	err = f.Close()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+
+type TermFreq map[string]int
+type TermFreqIndex map[string]TermFreq
 
 func main() {
 
+	/* filePath := "./docs.gl/gl4/glVertexAttribDivisor.xhtml"*/
+	/*content := readEntireXMLFile(filePath)*/
+
 	/*  allDocs := make(map[string]map[string]int)*/
 
-	/*dirPath := "./docs.gl/gl4"*/
-	/*dir, err := os.Open(dirPath)*/
-	/*if err != nil {*/
-	/*log.Fatal(err)*/
+	dirPath := "./docs.gl/gl4"
+	dir, err := os.Open(dirPath)
+	if err != nil {
+		log.Fatal(err)
 
-	/*}*/
-	/*defer dir.Close()*/
-
-	/*fileInfos, err := dir.Readdir(-1)*/
-	/*if err != nil {*/
-	/*log.Fatal(err)*/
-
-	/*}*/
-
-	/*for _, fi := range fileInfos {*/
-	/*filePath := dirPath + "/" + fi.Name()*/
-	/*content := readEntireXMLFile(filePath)*/
-	/*fileSize := len(content)*/
-
-	/*fmt.Println(filePath,  " => ",  fileSize)*/
-	/*}*/
-
-	filePath := "./docs.gl/gl4/glVertexAttribDivisor.xhtml"
-	content := readEntireXMLFile(filePath)
-	lexer := newLexer(content)
-	for {
-		token, err := lexer.next()
-		if err != nil {
-			fmt.Println("EOF")
-			break
-		}
-		fmt.Println("token: ", string(token))
 	}
+	defer dir.Close()
+	//topN := 20
+
+	fileInfos, err := dir.Readdir(-1)
+	if err != nil {
+		log.Fatal(err)
+
+	}
+
+	termFreqIndex := make(TermFreqIndex)
+
+	for _, fi := range fileInfos {
+		filePath := dirPath + "/" + fi.Name()
+		fmt.Println("Indexing file: ", filePath)
+		content := readEntireXMLFile(filePath)
+		fileSize := len(content)
+
+		fmt.Println(filePath, " => ", fileSize)
+		tf := make(TermFreq)
+
+		lexer := newLexer(content)
+		for {
+			token, err := lexer.next()
+			if err != nil {
+				fmt.Println("EOF")
+				break
+			}
+			if _, ok := tf[strings.ToUpper(string(token))]; ok {
+				tf[strings.ToUpper(string(token))] += 1
+			} else {
+				tf[strings.ToUpper(string(token))] = 1
+			}
+			//fmt.Println("token: ", strings.ToUpper(string(token)))
+		}
+
+		//stats := mapToSortedSlice(tf)
+		termFreqIndex[filePath] = tf
+
+		/*   fmt.Println(filePath)*/
+		/*if len(stats) < topN {*/
+		/*for t, v := range stats {*/
+		/*fmt.Println(t, " => ", v)*/
+		/*}*/
+		/*} else {*/
+		/*for t, v := range stats[:topN] {*/
+		/*fmt.Println(t, " => ", v)*/
+		/*}*/
+		/*}*/
+
+	}
+
+  mapToJSON(termFreqIndex)
+
+ /* for p, tf := range termFreqIndex {*/
+		/*fmt.Printf("%v has %v unique terms", p, len(tf))*/
+		/*fmt.Println()*/
+	/*}*/
 
 }
