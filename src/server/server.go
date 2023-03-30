@@ -42,6 +42,8 @@ func handleRequests(tfIndex Types.TermFreqIndex) http.HandlerFunc {
 				Path string  `json:"path"`
 				TF   float32 `json:"tf"`
 			}
+
+			count := 0
 			for path, table := range tfIndex {
 				//fmt.Println(path)
 				querylexer := Lexer.NewLexer(string(requestBodyBytes))
@@ -52,7 +54,7 @@ func handleRequests(tfIndex Types.TermFreqIndex) http.HandlerFunc {
 						break
 					}
 					rank += Util.TF(token, table) * Util.IDF(token, tfIndex)
-
+					count += 1
 					//stats := mapToSortedSlice(tf)
 				}
 				result = append(result, struct {
@@ -64,15 +66,16 @@ func handleRequests(tfIndex Types.TermFreqIndex) http.HandlerFunc {
 				})
 
 			}
+			fmt.Println("------------------")
+			fmt.Println("Counted ", count, " documents")
+			fmt.Println("------------------")
 			for i := 0; i < 10; i++ {
 				fmt.Println(result[i].Path, " => ", result[i].TF)
 			}
 			// for i, v := range result {
 			// 	fmt.Println(i, v.Path, " => ", v.TF)
 			// }
-
-			response := Response{"SUCCESS"}
-			jsonBytes, err := json.Marshal(response)
+			jsonBytes, err := json.Marshal(result[:20])
 			if err != nil {
 				fmt.Println(err)
 				return

@@ -96,7 +96,7 @@ func main() {
 		}
 		dirPath := args[1]
 		termFreqIndex := tfIndexFolder(dirPath)
-		Lexer.MapToJSON(termFreqIndex, "index.json")
+		Lexer.MapToJSON(termFreqIndex, true, "index.json")
 	case "search":
 		if len(args) != 2 {
 			log.Fatal("Path to folder must be provided.")

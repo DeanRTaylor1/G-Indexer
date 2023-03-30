@@ -114,12 +114,14 @@ func MapToSortedSlice(m map[string]int) (stats []stat) {
 	return stats
 }
 
-func MapToJSON(m Types.TermFreqIndex, filename string) string {
+func MapToJSON(m Types.TermFreqIndex, createFile bool, filename string) string {
 	b, err := json.Marshal(m)
 	if err != nil {
 		fmt.Println("error:", err)
 	}
-	JSONToFile(b, filename)
+	if createFile {
+		JSONToFile(b, filename)
+	}
 	return string(b)
 }
 
