@@ -55,9 +55,11 @@ func handleRequests(model Types.Model) http.HandlerFunc {
 					if err != nil {
 						break
 					}
-					rank += Util.ComputeTF(token, table) * Util.ComputeIDF(token, len(model.TFPD), model.DF)
+					//fmt.Println(Util.ComputeTF(token, table.TermCount, table.Terms), Util.ComputeIDF(token, table.TermCount, model.DF))
+					rank += Util.ComputeTF(token, table.TermCount, table.Terms) * Util.ComputeIDF(token, len(model.TFPD), model.DF)
 					count += 1
 					//stats := mapToSortedSlice(tf)
+					//fmt.Println(token, " => ", rank)
 				}
 				result = append(result, struct {
 					Path string  `json:"path"`

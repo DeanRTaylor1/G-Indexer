@@ -60,8 +60,23 @@ func addFolderToModel(dirPath string, model *Types.Model) {
 			model.DF[token] += 1
 		}
 
-		model.TFPD[filePath] = tf
+		model.TFPD[filePath] = ConvertToDocData(tf)
 	}
+}
+
+func ConvertToDocData(tf Types.TermFreq) Types.DocData {
+	var termCount int
+
+	for _, freq := range tf {
+		termCount += freq
+
+	}
+
+	docData := &Types.DocData{
+		TermCount: termCount,
+		Terms:     tf,
+	}
+	return *docData
 }
 
 func help() {
