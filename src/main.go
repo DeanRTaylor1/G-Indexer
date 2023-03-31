@@ -8,12 +8,13 @@ import (
 
 	"os"
 
-	"github.com/deanrtaylor1/gosearch/src/Lexer"
-	"github.com/deanrtaylor1/gosearch/src/Types"
+	"github.com/deanrtaylor1/gosearch/src/lexer"
 	"github.com/deanrtaylor1/gosearch/src/server"
+	"github.com/deanrtaylor1/gosearch/src/types"
+	webcrawler "github.com/deanrtaylor1/gosearch/src/web-crawler"
 )
 
-func addFolderToModel(dirPath string, model *Types.Model) {
+func addFolderToModel(dirPath string, model *types.Model) {
 
 	dir, err := os.Open(dirPath)
 	if err != nil {
@@ -34,40 +35,70 @@ func addFolderToModel(dirPath string, model *Types.Model) {
 			subDirPath := filepath.Join(dirPath, fi.Name())
 			addFolderToModel(subDirPath, model)
 		}
-		if filepath.Ext(fi.Name()) != ".xhtml" && filepath.Ext(fi.Name()) != ".xml" {
-			fmt.Fprint(os.Stderr, "\033[31mSkipping file:", fi.Name(), "(not .xhtml or .xml)\033[0m")
+		switch filepath.Ext(fi.Name()) {
+		case ".xhtml", ".xml":
+			filePath := dirPath + "/" + fi.Name()
+			fmt.Println("Indexing file: ", filePath)
+			content := lexer.ReadEntireXMLFile(filePath)
+			fileSize := len(content)
+
+			fmt.Println(filePath, " => ", fileSize)
+			tf := make(types.TermFreq)
+
+			lexer := lexer.NewLexer(content)
+			for {
+				token, err := lexer.Next()
+				if err != nil {
+					fmt.Println("EOF")
+					break
+				}
+
+				tf[token] += 1
+				//stats := mapToSortedSlice(tf)
+			}
+			for token := range tf {
+				model.DF[token] += 1
+			}
+
+			model.TFPD[filePath] = ConvertToDocData(tf)
+
+		case ".html":
+			fmt.Println("TODO IMPLEMENT HTML PARSER")
+			filePath := dirPath + "/" + fi.Name()
+			fmt.Println("Indexing file: ", filePath)
+			content := lexer.ReadEntireHTMLFile(filePath)
+			fileSize := len(content)
+
+			fmt.Println(filePath, " => ", fileSize)
+			tf := make(types.TermFreq)
+
+			lexer := lexer.NewLexer(content)
+			for {
+				token, err := lexer.Next()
+				if err != nil {
+					fmt.Println("EOF")
+					break
+				}
+
+				tf[token] += 1
+				//stats := mapToSortedSlice(tf)
+			}
+			for token := range tf {
+				model.DF[token] += 1
+			}
+
+			model.TFPD[filePath] = ConvertToDocData(tf)
+
+		default:
+			fmt.Fprint(os.Stderr, "\033[31mSkipping file:", fi.Name(), "(not HTML. .xhtml or .xml)\033[0m")
 			fmt.Println()
 			continue
 		}
-		filePath := dirPath + "/" + fi.Name()
-		fmt.Println("Indexing file: ", filePath)
-		content := Lexer.ReadEntireXMLFile(filePath)
-		fileSize := len(content)
-
-		fmt.Println(filePath, " => ", fileSize)
-		tf := make(Types.TermFreq)
-
-		lexer := Lexer.NewLexer(content)
-		for {
-			token, err := lexer.Next()
-			if err != nil {
-				fmt.Println("EOF")
-				break
-			}
-
-			tf[token] += 1
-			//stats := mapToSortedSlice(tf)
-		}
-		for token := range tf {
-			model.DF[token] += 1
-		}
-
-		model.TFPD[filePath] = ConvertToDocData(tf)
 	}
 
 }
 
-func ConvertToDocData(tf Types.TermFreq) Types.DocData {
+func ConvertToDocData(tf types.TermFreq) types.DocData {
 	var termCount int
 
 	for _, freq := range tf {
@@ -75,7 +106,7 @@ func ConvertToDocData(tf Types.TermFreq) Types.DocData {
 
 	}
 
-	docData := &Types.DocData{
+	docData := &types.DocData{
 		TermCount: termCount,
 		Terms:     tf,
 	}
@@ -107,12 +138,12 @@ func main() {
 			log.Fatal("Path to folder must be provided.")
 		}
 		dirPath := args[1]
-		model := &Types.Model{
-			TFPD: make(Types.TermFreqPerDoc),
-			DF:   make(Types.DocFreq),
+		model := &types.Model{
+			TFPD: make(types.TermFreqPerDoc),
+			DF:   make(types.DocFreq),
 		}
 		addFolderToModel(dirPath, model)
-		Lexer.ModelToJSON(*model, true, "index.json")
+		lexer.ModelToJSON(*model, true, "index.json")
 		// termFreqIndex := tfIndexFolder(dirPath)
 		// Lexer.MapToJSON(termFreqIndex, true, "index.json")
 	case "search":
@@ -120,7 +151,7 @@ func main() {
 			log.Fatal("Path to folder must be provided.")
 		}
 		indexPath := args[1]
-		Lexer.CheckIndex(indexPath)
+		lexer.CheckIndex(indexPath)
 		fmt.Println("TODO: IMPLEMENT SEARCH FUNCTION")
 	case "help":
 		help()
@@ -137,7 +168,7 @@ func main() {
 		}
 		defer f.Close()
 
-		var model Types.Model
+		var model types.Model
 
 		err = json.NewDecoder(f).Decode(&model)
 		if err != nil {
@@ -145,21 +176,18 @@ func main() {
 
 		}
 
-		// for k, v := range tfIndex {
-		// 	fmt.Println(k)
-		// 	for k2, v2 := range v {
-		// 		fmt.Println(k2, v2)
-		// 	}
-		// }
-
 		server.Serve(model)
-		fmt.Println("TODO: IMPLEMENT SERVER FUNCTION")
+	case "crawl":
+		if len(args) != 2 {
+			help()
+			log.Fatal("Path to folder must be provided.")
+
+		}
+		fmt.Println("TODO: IMPLEMENT CRAWLER FUNCTION")
+		url := args[1]
+		webcrawler.Crawl(url, nil, true)
 	default:
 		help()
 	}
-	/* for p, tf := range termFreqIndex {*/
-	/*fmt.Printf("%v has %v unique terms", p, len(tf))*/
-	/*fmt.Println()*/
-	/*}*/
 
 }

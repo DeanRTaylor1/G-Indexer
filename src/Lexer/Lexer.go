@@ -1,4 +1,4 @@
-package Lexer
+package lexer
 
 import (
 	"encoding/json"
@@ -10,7 +10,9 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/deanrtaylor1/gosearch/src/Types"
+	"golang.org/x/net/html"
+
+	"github.com/deanrtaylor1/gosearch/src/types"
 	"github.com/tebeka/snowball"
 )
 
@@ -84,6 +86,29 @@ func (l *Lexer) Next() (string, error) {
 	return (string(token)), nil
 }
 
+func ParseLinks(htmlContent string) []string {
+	links := []string{}
+	nodes, err := html.Parse(strings.NewReader(htmlContent))
+	if err != nil {
+		fmt.Println(err)
+	}
+	var f func(*html.Node)
+	f = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "a" {
+			for _, a := range n.Attr {
+				if a.Key == "href" {
+					links = append(links, a.Val)
+				}
+			}
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			f(c)
+		}
+	}
+	f(nodes)
+	return links
+}
+
 /*func indexDocument(content string) map[string]int {*/
 /*return*/
 /*}*/
@@ -112,6 +137,28 @@ func ReadEntireXMLFile(filePath string) string {
 	}
 	return content
 }
+
+func ReadEntireHTMLFile(filePath string) string {
+	f, err := os.Open(filePath)
+	if err != nil {
+		panic(err)
+	}
+
+	defer f.Close()
+
+	var content string
+
+	d := html.NewTokenizer(f)
+	for {
+		tt := d.Next()
+		switch tt {
+		case html.ErrorToken:
+			return content
+		case html.TextToken:
+			content += string(d.Text())
+		}
+	}
+}
 func MapToSortedSlice(m map[string]int) (stats []stat) {
 	for k, v := range m {
 		stats = append(stats, struct {
@@ -124,7 +171,7 @@ func MapToSortedSlice(m map[string]int) (stats []stat) {
 	return stats
 }
 
-func ModelToJSON(m Types.Model, createFile bool, filename string) string {
+func ModelToJSON(m types.Model, createFile bool, filename string) string {
 	b, err := json.Marshal(m)
 	if err != nil {
 		fmt.Println("error:", err)
@@ -168,7 +215,7 @@ func LogStats(filePath string, stats []stat, topN int) {
 	}
 }
 
-func CheckIndex(path string) (Types.TermFreqPerDoc, error) {
+func CheckIndex(path string) (types.TermFreqPerDoc, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		fmt.Println(err)
@@ -176,7 +223,7 @@ func CheckIndex(path string) (Types.TermFreqPerDoc, error) {
 	}
 	defer f.Close()
 
-	var index Types.TermFreqPerDoc
+	var index types.TermFreqPerDoc
 
 	err = json.NewDecoder(f).Decode(&index)
 	if err != nil {

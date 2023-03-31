@@ -1,4 +1,4 @@
-package Types
+package types
 
 type TermFreq map[string]int
 type TermFreqPerDoc map[string]DocData

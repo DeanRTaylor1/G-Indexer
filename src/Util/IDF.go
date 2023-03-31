@@ -1,12 +1,12 @@
-package Util
+package util
 
 import (
 	"math"
 
-	"github.com/deanrtaylor1/gosearch/src/Types"
+	"github.com/deanrtaylor1/gosearch/src/types"
 )
 
-func ComputeIDF(t string, N int, df Types.DocFreq) float32 {
+func ComputeIDF(t string, N int, df types.DocFreq) float32 {
 	//N The total number of documents in the collection.
 
 	//The number of documents in the collection that contain the term.

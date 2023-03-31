@@ -9,9 +9,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/deanrtaylor1/gosearch/src/Lexer"
-	"github.com/deanrtaylor1/gosearch/src/Types"
-	"github.com/deanrtaylor1/gosearch/src/Util"
+	"github.com/deanrtaylor1/gosearch/src/lexer"
+	"github.com/deanrtaylor1/gosearch/src/types"
+	"github.com/deanrtaylor1/gosearch/src/util"
 	"github.com/tebeka/snowball"
 )
 
@@ -23,7 +23,7 @@ type Response struct {
 /*Query string `json:"query"`*/
 /*}*/
 
-func handleRequests(model Types.Model) http.HandlerFunc {
+func handleRequests(model types.Model) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(r.Method, r.URL.Path)
 		switch {
@@ -55,7 +55,7 @@ func handleRequests(model Types.Model) http.HandlerFunc {
 			count := 0
 			for path, table := range model.TFPD {
 				//fmt.Println(path)
-				querylexer := Lexer.NewLexer(string(requestBodyBytes))
+				querylexer := lexer.NewLexer(string(requestBodyBytes))
 				var rank float32 = 0
 				for {
 					token, err := querylexer.Next()
@@ -63,7 +63,7 @@ func handleRequests(model Types.Model) http.HandlerFunc {
 						break
 					}
 					//fmt.Println(Util.ComputeTF(token, table.TermCount, table.Terms), Util.ComputeIDF(token, table.TermCount, model.DF))
-					rank += Util.ComputeTF(token, table.TermCount, table.Terms) * Util.ComputeIDF(token, len(model.TFPD), model.DF)
+					rank += util.ComputeTF(token, table.TermCount, table.Terms) * util.ComputeIDF(token, len(model.TFPD), model.DF)
 					count += 1
 					//stats := mapToSortedSlice(tf)
 					//fmt.Println(token, " => ", rank)
@@ -108,7 +108,7 @@ func handleRequests(model Types.Model) http.HandlerFunc {
 	}
 }
 
-func Serve(model Types.Model) {
+func Serve(model types.Model) {
 	http.HandleFunc("/", handleRequests(model))
 	fmt.Println("Listening on port 8080...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
