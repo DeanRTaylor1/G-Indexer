@@ -11,6 +11,7 @@ import (
 	"unicode"
 
 	"github.com/deanrtaylor1/gosearch/src/Types"
+	"github.com/tebeka/snowball"
 )
 
 type Lexer struct {
@@ -58,20 +59,29 @@ func (l *Lexer) NextToken() []rune {
 		return l.ChopWhile(unicode.IsNumber)
 	}
 	if unicode.IsLetter(l.content[0]) {
-		return l.ChopWhile(func(r rune) bool {
+		stemmer, err := snowball.New("english")
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer stemmer.Close()
+
+		term := l.ChopWhile(func(r rune) bool {
 			return unicode.IsLetter(r) || unicode.IsNumber(r)
 		})
+
+		return []rune(stemmer.Stem(strings.ToLower(string(term))))
 
 	}
 	return l.Chop(1)
 }
 
 func (l *Lexer) Next() (string, error) {
+
 	token := l.NextToken()
 	if token == nil {
 		return "EOF", errors.New("no more tokens")
 	}
-	return strings.ToUpper(string(token)), nil
+	return (string(token)), nil
 }
 
 /*func indexDocument(content string) map[string]int {*/

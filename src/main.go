@@ -14,6 +14,7 @@ import (
 )
 
 func addFolderToModel(dirPath string, model *Types.Model) {
+
 	dir, err := os.Open(dirPath)
 	if err != nil {
 		log.Fatal(err)
@@ -53,6 +54,7 @@ func addFolderToModel(dirPath string, model *Types.Model) {
 				fmt.Println("EOF")
 				break
 			}
+
 			tf[token] += 1
 			//stats := mapToSortedSlice(tf)
 		}
@@ -62,6 +64,7 @@ func addFolderToModel(dirPath string, model *Types.Model) {
 
 		model.TFPD[filePath] = ConvertToDocData(tf)
 	}
+
 }
 
 func ConvertToDocData(tf Types.TermFreq) Types.DocData {

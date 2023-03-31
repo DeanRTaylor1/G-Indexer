@@ -12,6 +12,7 @@ import (
 	"github.com/deanrtaylor1/gosearch/src/Lexer"
 	"github.com/deanrtaylor1/gosearch/src/Types"
 	"github.com/deanrtaylor1/gosearch/src/Util"
+	"github.com/tebeka/snowball"
 )
 
 type Response struct {
@@ -34,6 +35,12 @@ func handleRequests(model Types.Model) http.HandlerFunc {
 			http.ServeFile(w, r, "src/static/index.js")
 		case r.Method == "POST" && r.URL.Path == "/api/search":
 			start := time.Now()
+			stemmer, err := snowball.New("english")
+
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer stemmer.Close()
 			requestBodyBytes, err := io.ReadAll(r.Body)
 			if err != nil {
 				fmt.Println(err)
