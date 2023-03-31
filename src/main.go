@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"sync"
 
 	"os"
 
@@ -183,9 +184,17 @@ func main() {
 			log.Fatal("Path to folder must be provided.")
 
 		}
-		fmt.Println("TODO: IMPLEMENT CRAWLER FUNCTION")
-		url := args[1]
-		webcrawler.Crawl(url, nil, true)
+		domain := args[1]
+		fmt.Println("crawling domain: ", domain)
+		visited := make(map[string]bool)
+		urls := make(map[string]string)
+
+		visitedMutex := sync.Mutex{}
+		dirName := webcrawler.Crawl(domain, domain, nil, true, &visitedMutex, &visited, &urls)
+
+		visitedMutex.Lock()
+		defer visitedMutex.Unlock()
+		lexer.MapToJSON(urls, true, dirName+"/urls.json")
 	default:
 		help()
 	}

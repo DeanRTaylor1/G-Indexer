@@ -183,6 +183,7 @@ func ModelToJSON(m types.Model, createFile bool, filename string) string {
 }
 
 func JSONToFile(j []byte, filename string) {
+	fmt.Println("j length:", len(j)) // debugging line
 	f, err := os.Create(filename)
 	if err != nil {
 		fmt.Println(err)
@@ -200,6 +201,23 @@ func JSONToFile(j []byte, filename string) {
 		fmt.Println(err)
 		return
 	}
+}
+
+func MapToJSON(m map[string]string, createFile bool, filename string) string {
+	if len(m) == 0 {
+		fmt.Println("map is empty")
+		return ""
+	}
+
+	b, err := json.Marshal(m)
+	if err != nil {
+		fmt.Println("error:", err)
+		return ""
+	}
+	if createFile {
+		JSONToFile(b, filename)
+	}
+	return string(b)
 }
 
 func LogStats(filePath string, stats []stat, topN int) {
