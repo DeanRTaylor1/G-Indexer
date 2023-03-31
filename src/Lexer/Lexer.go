@@ -114,7 +114,7 @@ func MapToSortedSlice(m map[string]int) (stats []stat) {
 	return stats
 }
 
-func MapToJSON(m Types.TermFreqIndex, createFile bool, filename string) string {
+func ModelToJSON(m Types.Model, createFile bool, filename string) string {
 	b, err := json.Marshal(m)
 	if err != nil {
 		fmt.Println("error:", err)
@@ -158,7 +158,7 @@ func LogStats(filePath string, stats []stat, topN int) {
 	}
 }
 
-func CheckIndex(path string) (Types.TermFreqIndex, error) {
+func CheckIndex(path string) (Types.TermFreqPerDoc, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		fmt.Println(err)
@@ -166,7 +166,7 @@ func CheckIndex(path string) (Types.TermFreqIndex, error) {
 	}
 	defer f.Close()
 
-	var index Types.TermFreqIndex
+	var index Types.TermFreqPerDoc
 
 	err = json.NewDecoder(f).Decode(&index)
 	if err != nil {

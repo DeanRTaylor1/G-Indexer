@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"path/filepath"
@@ -12,7 +13,7 @@ import (
 	"github.com/deanrtaylor1/gosearch/src/server"
 )
 
-func tfIndexFolder(dirPath string) Types.TermFreqIndex {
+func addFolderToModel(dirPath string, model *Types.Model) {
 	dir, err := os.Open(dirPath)
 	if err != nil {
 		log.Fatal(err)
@@ -24,21 +25,17 @@ func tfIndexFolder(dirPath string) Types.TermFreqIndex {
 		log.Fatal(err)
 	}
 
-	termFreqIndex := make(Types.TermFreqIndex)
-
 	for _, fi := range fileInfos {
 		if fi.IsDir() {
 			if fi.Name() == "specs" {
 				continue
 			}
 			subDirPath := filepath.Join(dirPath, fi.Name())
-			subTermFreqIndex := tfIndexFolder(subDirPath)
-			for k, v := range subTermFreqIndex {
-				termFreqIndex[k] = v
-			}
-			continue
+			addFolderToModel(subDirPath, model)
 		}
 		if filepath.Ext(fi.Name()) != ".xhtml" && filepath.Ext(fi.Name()) != ".xml" {
+			fmt.Fprint(os.Stderr, "\033[31mSkipping file:", fi.Name(), "(not .xhtml or .xml)\033[0m")
+			fmt.Println()
 			continue
 		}
 		filePath := dirPath + "/" + fi.Name()
@@ -56,18 +53,15 @@ func tfIndexFolder(dirPath string) Types.TermFreqIndex {
 				fmt.Println("EOF")
 				break
 			}
-			if _, ok := tf[token]; ok {
-				tf[token] += 1
-			} else {
-				tf[token] = 1
-			}
+			tf[token] += 1
 			//stats := mapToSortedSlice(tf)
 		}
+		for token := range tf {
+			model.DF[token] += 1
+		}
 
-		termFreqIndex[filePath] = tf
+		model.TFPD[filePath] = tf
 	}
-	return termFreqIndex
-
 }
 
 func help() {
@@ -95,8 +89,14 @@ func main() {
 			log.Fatal("Path to folder must be provided.")
 		}
 		dirPath := args[1]
-		termFreqIndex := tfIndexFolder(dirPath)
-		Lexer.MapToJSON(termFreqIndex, true, "index.json")
+		model := &Types.Model{
+			TFPD: make(Types.TermFreqPerDoc),
+			DF:   make(Types.DocFreq),
+		}
+		addFolderToModel(dirPath, model)
+		Lexer.ModelToJSON(*model, true, "index.json")
+		// termFreqIndex := tfIndexFolder(dirPath)
+		// Lexer.MapToJSON(termFreqIndex, true, "index.json")
 	case "search":
 		if len(args) != 2 {
 			log.Fatal("Path to folder must be provided.")
@@ -111,10 +111,20 @@ func main() {
 			log.Fatal("Path to folder must be provided.")
 		}
 		indexPath := args[1]
-		tfIndex, err := Lexer.CheckIndex(indexPath)
-
+		//tfIndex, err := Lexer.CheckIndex(indexPath)
+		f, err := os.Open(indexPath)
 		if err != nil {
 			log.Fatal(err)
+
+		}
+		defer f.Close()
+
+		var model Types.Model
+
+		err = json.NewDecoder(f).Decode(&model)
+		if err != nil {
+			log.Fatal(err)
+
 		}
 
 		// for k, v := range tfIndex {
@@ -124,7 +134,7 @@ func main() {
 		// 	}
 		// }
 
-		server.Serve(tfIndex)
+		server.Serve(model)
 		fmt.Println("TODO: IMPLEMENT SERVER FUNCTION")
 	default:
 		help()

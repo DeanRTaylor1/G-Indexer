@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/deanrtaylor1/gosearch/src/Lexer"
 	"github.com/deanrtaylor1/gosearch/src/Types"
@@ -21,7 +22,7 @@ type Response struct {
 /*Query string `json:"query"`*/
 /*}*/
 
-func handleRequests(tfIndex Types.TermFreqIndex) http.HandlerFunc {
+func handleRequests(model Types.Model) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(r.Method, r.URL.Path)
 		switch {
@@ -32,6 +33,7 @@ func handleRequests(tfIndex Types.TermFreqIndex) http.HandlerFunc {
 		case r.Method == "GET" && r.URL.Path == "/index.js":
 			http.ServeFile(w, r, "src/static/index.js")
 		case r.Method == "POST" && r.URL.Path == "/api/search":
+			start := time.Now()
 			requestBodyBytes, err := io.ReadAll(r.Body)
 			if err != nil {
 				fmt.Println(err)
@@ -44,7 +46,7 @@ func handleRequests(tfIndex Types.TermFreqIndex) http.HandlerFunc {
 			}
 
 			count := 0
-			for path, table := range tfIndex {
+			for path, table := range model.TFPD {
 				//fmt.Println(path)
 				querylexer := Lexer.NewLexer(string(requestBodyBytes))
 				var rank float32 = 0
@@ -53,7 +55,7 @@ func handleRequests(tfIndex Types.TermFreqIndex) http.HandlerFunc {
 					if err != nil {
 						break
 					}
-					rank += Util.TF(token, table) * Util.IDF(token, tfIndex)
+					rank += Util.ComputeTF(token, table) * Util.ComputeIDF(token, len(model.TFPD), model.DF)
 					count += 1
 					//stats := mapToSortedSlice(tf)
 				}
@@ -66,10 +68,8 @@ func handleRequests(tfIndex Types.TermFreqIndex) http.HandlerFunc {
 				})
 
 			}
-			fmt.Println("------------------")
-			fmt.Println("Counted ", count, " documents")
-			fmt.Println("------------------")
-			for i := 0; i < 10; i++ {
+
+			for i := 0; i < 20; i++ {
 				fmt.Println(result[i].Path, " => ", result[i].TF)
 			}
 			// for i, v := range result {
@@ -86,6 +86,10 @@ func handleRequests(tfIndex Types.TermFreqIndex) http.HandlerFunc {
 				fmt.Println(err)
 				return
 			}
+			elapsed := time.Since(start)
+			fmt.Println("------------------")
+			fmt.Println("Queried ", count, " documents in ", elapsed.Milliseconds(), " ms")
+			fmt.Println("------------------")
 		default:
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprint(w, "404 Not Found")
@@ -95,8 +99,8 @@ func handleRequests(tfIndex Types.TermFreqIndex) http.HandlerFunc {
 	}
 }
 
-func Serve(tfIndex Types.TermFreqIndex) {
-	http.HandleFunc("/", handleRequests(tfIndex))
+func Serve(model Types.Model) {
+	http.HandleFunc("/", handleRequests(model))
 	fmt.Println("Listening on port 8080...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
