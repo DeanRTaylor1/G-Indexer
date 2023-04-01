@@ -70,6 +70,7 @@ func main() {
 					DF:   make(bm25.DocFreq),
 				}
 				bm25.AddFolderToModel(dirPath, model)
+				model.DA = float32(model.TermCount) / float32(model.DocCount)
 				bm25.ModelToJSON(*model, true, "index.json")
 
 			default:
@@ -93,31 +94,61 @@ func main() {
 		}
 		indexPath := args[1]
 		tfidf.CheckIndex(indexPath)
-		fmt.Println("TODO: IMPLEMENT SEARCH FUNCTION")
+
 	case "help":
 		help()
 	case "server":
-		if len(args) != 2 {
+		if len(args) < 2 {
 			log.Fatal("Path to folder must be provided.")
 		}
 		indexPath := args[1]
 		//tfIndex, err := Lexer.CheckIndex(indexPath)
-		f, err := os.Open(indexPath)
-		if err != nil {
-			log.Fatal(err)
+		if len(args) > 2 && args[2] == "-a" {
 
+			switch args[3] {
+			case "tfidf":
+				f, err := os.Open(indexPath)
+				if err != nil {
+					log.Fatal(err)
+
+				}
+				defer f.Close()
+
+				var model tfidf.Model
+
+				err = json.NewDecoder(f).Decode(&model)
+				if err != nil {
+					log.Fatal(err)
+
+				}
+
+				server.Serve(model)
+			case "bm25":
+				f, err := os.Open(indexPath)
+				if err != nil {
+					log.Fatal(err)
+
+				}
+				defer f.Close()
+
+				var model bm25.Model
+
+				err = json.NewDecoder(f).Decode(&model)
+				if err != nil {
+					log.Fatal(err)
+
+				}
+
+				server.Serve(model)
+			default:
+				fmt.Println("Invalid algorithm")
+				help()
+
+			}
+		} else {
+			log.Fatal("Algorithm must be provided.")
 		}
-		defer f.Close()
 
-		var model tfidf.Model
-
-		err = json.NewDecoder(f).Decode(&model)
-		if err != nil {
-			log.Fatal(err)
-
-		}
-
-		server.Serve(model)
 	case "crawl":
 		if len(args) != 2 {
 			help()

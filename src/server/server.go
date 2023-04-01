@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/deanrtaylor1/gosearch/src/bm25"
 	"github.com/deanrtaylor1/gosearch/src/lexer"
 	"github.com/deanrtaylor1/gosearch/src/tfidf"
 
@@ -23,7 +24,7 @@ type Response struct {
 /*Query string `json:"query"`*/
 /*}*/
 
-func handleRequests(model tfidf.Model) http.HandlerFunc {
+func handleRequests(model interface{}) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(r.Method, r.URL.Path)
 		switch {
@@ -36,69 +37,137 @@ func handleRequests(model tfidf.Model) http.HandlerFunc {
 		case r.Method == "POST" && r.URL.Path == "/api/search":
 			start := time.Now()
 			stemmer, err := snowball.New("english")
-
 			if err != nil {
 				log.Fatal(err)
 			}
-			defer stemmer.Close()
-			requestBodyBytes, err := io.ReadAll(r.Body)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			fmt.Println(string(requestBodyBytes))
-			var result []struct {
-				Path string  `json:"path"`
-				TF   float32 `json:"tf"`
-			}
 
-			count := 0
-			for path, table := range model.TFPD {
-				//fmt.Println(path)
-				querylexer := lexer.NewLexer(string(requestBodyBytes))
-				var rank float32 = 0
-				for {
-					token, err := querylexer.Next()
-					if err != nil {
-						break
-					}
-					//fmt.Println(Util.ComputeTF(token, table.TermCount, table.Terms), Util.ComputeIDF(token, table.TermCount, model.DF))
-					rank += tfidf.ComputeTF(token, table.TermCount, table.Terms) * tfidf.ComputeIDF(token, len(model.TFPD), model.DF)
-					count += 1
-					//stats := mapToSortedSlice(tf)
-					//fmt.Println(token, " => ", rank)
+			defer stemmer.Close()
+			switch v := model.(type) {
+			case tfidf.Model:
+
+				requestBodyBytes, err := io.ReadAll(r.Body)
+				if err != nil {
+					fmt.Println(err)
+					return
 				}
-				result = append(result, struct {
+				fmt.Println(string(requestBodyBytes))
+				var result []struct {
 					Path string  `json:"path"`
 					TF   float32 `json:"tf"`
-				}{path, rank})
-				sort.Slice(result, func(i, j int) bool {
-					return result[i].TF > result[j].TF
-				})
+				}
 
-			}
+				count := 0
+				for path, table := range v.TFPD {
+					//fmt.Println(path)
+					querylexer := lexer.NewLexer(string(requestBodyBytes))
+					var rank float32 = 0
+					for {
+						token, err := querylexer.Next()
+						if err != nil {
+							break
+						}
+						//fmt.Println(Util.ComputeTF(token, table.TermCount, table.Terms), Util.ComputeIDF(token, table.TermCount, model.DF))
+						rank += tfidf.ComputeTF(token, table.TermCount, table.Terms) * tfidf.ComputeIDF(token, len(v.TFPD), v.DF)
+						count += 1
+						//stats := mapToSortedSlice(tf)
+						//fmt.Println(token, " => ", rank)
+					}
+					result = append(result, struct {
+						Path string  `json:"path"`
+						TF   float32 `json:"tf"`
+					}{path, rank})
+					sort.Slice(result, func(i, j int) bool {
+						return result[i].TF > result[j].TF
+					})
 
-			for i := 0; i < 20; i++ {
-				fmt.Println(result[i].Path, " => ", result[i].TF)
+				}
+
+				for i := 0; i < 20; i++ {
+					fmt.Println(result[i].Path, " => ", result[i].TF)
+				}
+				// for i, v := range result {
+				// 	fmt.Println(i, v.Path, " => ", v.TF)
+				// }
+				jsonBytes, err := json.Marshal(result[:20])
+
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, err = w.Write(jsonBytes)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				elapsed := time.Since(start)
+				fmt.Println("------------------")
+				fmt.Println("Queried ", count, " documents in ", elapsed.Milliseconds(), " ms")
+				fmt.Println("------------------")
+			case bm25.Model:
+				requestBodyBytes, err := io.ReadAll(r.Body)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				fmt.Println(string(requestBodyBytes))
+				var result []struct {
+					Path string  `json:"path"`
+					TF   float32 `json:"tf"`
+				}
+
+				count := 0
+				for path, table := range v.TFPD {
+					//fmt.Println(path)
+					querylexer := lexer.NewLexer(string(requestBodyBytes))
+					var rank float32 = 0
+					for {
+						token, err := querylexer.Next()
+						if err != nil {
+							break
+						}
+
+						//fmt.Println(bm25.ComputeTF(token, table.TermCount, table.Terms, v.DA), bm25.ComputeIDF(token, len(v.TFPD), v.DF))
+						rank += bm25.ComputeTF(token, table.TermCount, table.Terms, v.DA) * bm25.ComputeIDF(token, len(v.TFPD), v.DF)
+						count += 1
+						//stats := mapToSortedSlice(tf)
+						//fmt.Println(token, " => ", rank)
+					}
+					result = append(result, struct {
+						Path string  `json:"path"`
+						TF   float32 `json:"tf"`
+					}{path, rank})
+					sort.Slice(result, func(i, j int) bool {
+						return result[i].TF > result[j].TF
+					})
+
+				}
+
+				for i := 0; i < 20; i++ {
+					fmt.Println(result[i].Path, " => ", result[i].TF)
+				}
+				// for i, v := range result {
+				// 	fmt.Println(i, v.Path, " => ", v.TF)
+				// }
+				jsonBytes, err := json.Marshal(result[:20])
+
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, err = w.Write(jsonBytes)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				elapsed := time.Since(start)
+				fmt.Println("------------------")
+				fmt.Println("Queried ", count, " documents in ", elapsed.Milliseconds(), " ms")
+				fmt.Println("------------------")
+			default:
+				fmt.Println("Unknown model type")
 			}
-			// for i, v := range result {
-			// 	fmt.Println(i, v.Path, " => ", v.TF)
-			// }
-			jsonBytes, err := json.Marshal(result[:20])
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_, err = w.Write(jsonBytes)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			elapsed := time.Since(start)
-			fmt.Println("------------------")
-			fmt.Println("Queried ", count, " documents in ", elapsed.Milliseconds(), " ms")
-			fmt.Println("------------------")
 		default:
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprint(w, "404 Not Found")
@@ -108,7 +177,7 @@ func handleRequests(model tfidf.Model) http.HandlerFunc {
 	}
 }
 
-func Serve(model tfidf.Model) {
+func Serve(model interface{}) {
 	http.HandleFunc("/", handleRequests(model))
 	fmt.Println("Listening on port 8080...")
 	log.Fatal(http.ListenAndServe(":8080", nil))

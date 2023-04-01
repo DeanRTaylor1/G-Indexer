@@ -31,7 +31,7 @@ type Model struct {
 	//DF is the Document Frequency of a term
 	DF DocFreq
 	//DA is the average document length
-	DA        int32
+	DA        float32
 	TermCount int
 	DocCount  int
 }
@@ -142,12 +142,10 @@ func ComputeTF(t string, n int, d TermFreq, DA float32) float32 {
 	//n is the total number of terms (not unique) in the document
 	//d is the map of terms to their frequency in the document
 	//da is the average document length found in the model
+	fmt.Println(d[t], n, DA, t)
 	if _, ok := d[t]; ok {
 		M := float32(d[t]) * (k1 + 1)
-
 		N := float32(d[t]) + (k1 * (1 - b + (b * (float32(n) / DA))))
-
-		//fmt.Println("tf: ", tf)
 
 		return float32(M) / float32(N)
 	}
@@ -157,11 +155,12 @@ func ComputeTF(t string, n int, d TermFreq, DA float32) float32 {
 func ComputeIDF(t string, N int, df DocFreq) float32 {
 	//N The total number of documents in the collection.
 
-	//The number of documents in the collection that contain the term.
+	//df The number of documents in the collection that contain the term.
 	//fmt.Println(df[t])
-	n := float64(N) - float64(df[t]) + 0.5
 
-	M := math.Max(float64(df[t])+0.5, 1)
+	M := float64(df[t]) + 0.5
+
+	n := math.Max(float64(N)-float64(df[t])+0.5, M)
 
 	//If M is 0, set it to 1 to avoid division by zero errors.
 
