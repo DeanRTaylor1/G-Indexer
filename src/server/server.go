@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/deanrtaylor1/gosearch/src/lexer"
-	"github.com/deanrtaylor1/gosearch/src/types"
-	"github.com/deanrtaylor1/gosearch/src/util"
+	"github.com/deanrtaylor1/gosearch/src/tfidf"
+
 	"github.com/tebeka/snowball"
 )
 
@@ -23,7 +23,7 @@ type Response struct {
 /*Query string `json:"query"`*/
 /*}*/
 
-func handleRequests(model types.Model) http.HandlerFunc {
+func handleRequests(model tfidf.Model) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(r.Method, r.URL.Path)
 		switch {
@@ -63,7 +63,7 @@ func handleRequests(model types.Model) http.HandlerFunc {
 						break
 					}
 					//fmt.Println(Util.ComputeTF(token, table.TermCount, table.Terms), Util.ComputeIDF(token, table.TermCount, model.DF))
-					rank += util.ComputeTF(token, table.TermCount, table.Terms) * util.ComputeIDF(token, len(model.TFPD), model.DF)
+					rank += tfidf.ComputeTF(token, table.TermCount, table.Terms) * tfidf.ComputeIDF(token, len(model.TFPD), model.DF)
 					count += 1
 					//stats := mapToSortedSlice(tf)
 					//fmt.Println(token, " => ", rank)
@@ -108,7 +108,7 @@ func handleRequests(model types.Model) http.HandlerFunc {
 	}
 }
 
-func Serve(model types.Model) {
+func Serve(model tfidf.Model) {
 	http.HandleFunc("/", handleRequests(model))
 	fmt.Println("Listening on port 8080...")
 	log.Fatal(http.ListenAndServe(":8080", nil))

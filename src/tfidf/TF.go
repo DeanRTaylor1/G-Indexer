@@ -1,8 +1,6 @@
-package util
+package tfidf
 
-import "github.com/deanrtaylor1/gosearch/src/types"
-
-func ComputeTF(t string, N int, d types.TermFreq) float32 {
+func ComputeTF(t string, N int, d TermFreq) float32 {
 	//T is the term we are looking for
 	//N is the total number of terms (not unique) in the document
 	//d is the map of terms to their frequency in the document

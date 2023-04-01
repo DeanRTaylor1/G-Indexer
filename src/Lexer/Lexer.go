@@ -1,7 +1,6 @@
 package lexer
 
 import (
-	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -12,7 +11,6 @@ import (
 
 	"golang.org/x/net/html"
 
-	"github.com/deanrtaylor1/gosearch/src/types"
 	"github.com/tebeka/snowball"
 )
 
@@ -171,55 +169,6 @@ func MapToSortedSlice(m map[string]int) (stats []stat) {
 	return stats
 }
 
-func ModelToJSON(m types.Model, createFile bool, filename string) string {
-	b, err := json.Marshal(m)
-	if err != nil {
-		fmt.Println("error:", err)
-	}
-	if createFile {
-		JSONToFile(b, filename)
-	}
-	return string(b)
-}
-
-func JSONToFile(j []byte, filename string) {
-	fmt.Println("j length:", len(j)) // debugging line
-	f, err := os.Create(filename)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	l, err := f.Write(j)
-	if err != nil {
-		fmt.Println(err)
-		f.Close()
-		return
-	}
-	fmt.Println(l, "bytes written successfully")
-	err = f.Close()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-}
-
-func MapToJSON(m map[string]string, createFile bool, filename string) string {
-	if len(m) == 0 {
-		fmt.Println("map is empty")
-		return ""
-	}
-
-	b, err := json.Marshal(m)
-	if err != nil {
-		fmt.Println("error:", err)
-		return ""
-	}
-	if createFile {
-		JSONToFile(b, filename)
-	}
-	return string(b)
-}
-
 func LogStats(filePath string, stats []stat, topN int) {
 	fmt.Println(filePath)
 	if len(stats) < topN {
@@ -231,26 +180,4 @@ func LogStats(filePath string, stats []stat, topN int) {
 			fmt.Println(v.token, " => ", v.freq)
 		}
 	}
-}
-
-func CheckIndex(path string) (types.TermFreqPerDoc, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		fmt.Println(err)
-		return nil, err
-	}
-	defer f.Close()
-
-	var index types.TermFreqPerDoc
-
-	err = json.NewDecoder(f).Decode(&index)
-	if err != nil {
-		fmt.Println(err)
-		return nil, err
-	}
-
-	// for k, v := range index {
-	// 	LogStats(k, MapToSortedSlice(v), 10)
-	// }
-	return index, nil
 }
