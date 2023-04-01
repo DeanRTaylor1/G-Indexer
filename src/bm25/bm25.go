@@ -142,7 +142,7 @@ func ComputeTF(t string, n int, d TermFreq, DA float32) float32 {
 	//n is the total number of terms (not unique) in the document
 	//d is the map of terms to their frequency in the document
 	//da is the average document length found in the model
-	fmt.Println(d[t], n, DA, t)
+
 	if _, ok := d[t]; ok {
 		M := float32(d[t]) * (k1 + 1)
 		N := float32(d[t]) + (k1 * (1 - b + (b * (float32(n) / DA))))
