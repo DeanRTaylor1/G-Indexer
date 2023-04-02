@@ -127,11 +127,11 @@ func handleRequests(model interface{}) http.HandlerFunc {
 							break
 						}
 
-						//fmt.Println(bm25.ComputeTF(token, table.TermCount, table.Terms, v.DA), bm25.ComputeIDF(token, len(v.TFPD), v.DF))
+						fmt.Println(bm25.ComputeTF(token, table.TermCount, table.Terms, v.DA), bm25.ComputeIDF(token, len(v.TFPD), v.DF))
 						rank += bm25.ComputeTF(token, table.TermCount, table.Terms, v.DA) * bm25.ComputeIDF(token, len(v.TFPD), v.DF)
 						count += 1
 						//stats := mapToSortedSlice(tf)
-						//fmt.Println(token, " => ", rank)
+						fmt.Println(token, " => ", rank)
 					}
 					result = append(result, struct {
 						Path string  `json:"path"`
@@ -142,14 +142,57 @@ func handleRequests(model interface{}) http.HandlerFunc {
 					})
 
 				}
-
 				for i := 0; i < 20; i++ {
 					fmt.Println(result[i].Path, " => ", result[i].TF)
 				}
+				jsonBytes, err := json.Marshal(result[:20])
+
+				if result[0].TF == 0 {
+					fmt.Println("No results found, trying again with tfidf")
+					var result2 []struct {
+						Path string  `json:"path"`
+						TF   float32 `json:"tf"`
+					}
+					for path, table := range v.TFPD {
+
+						querylexer := lexer.NewLexer(string(requestBodyBytes))
+						var rank float32 = 0
+						for {
+							token, err := querylexer.Next()
+							if err != nil {
+								break
+							}
+							//fmt.Println(Util.ComputeTF(token, table.TermCount, table.Terms), Util.ComputeIDF(token, table.TermCount, model.DF))
+							rank += tfidf.ComputeTF(token, table.TermCount, tfidf.TermFreq(table.Terms)) * tfidf.ComputeIDF(token, len(v.TFPD), v.DF)
+							count += 1
+							//stats := mapToSortedSlice(tf)
+							//fmt.Println(token, " => ", rank)
+						}
+						result2 = append(result, struct {
+							Path string  `json:"path"`
+							TF   float32 `json:"tf"`
+						}{path, rank})
+						sort.Slice(result2, func(i, j int) bool {
+							return result2[i].TF > result2[j].TF
+						})
+
+					}
+					// for i := 0; i < 20; i++ {
+					// 	fmt.Println(result2[i].Path, " => ", result2[i].TF)
+					// }
+					jsonBytes, err = json.Marshal(result2[:20])
+					if err != nil {
+						fmt.Println(err)
+						return
+					}
+					for i := 0; i < 20; i++ {
+						fmt.Println(result2[i].Path, " => ", result2[i].TF)
+					}
+				}
+
 				// for i, v := range result {
 				// 	fmt.Println(i, v.Path, " => ", v.TF)
 				// }
-				jsonBytes, err := json.Marshal(result[:20])
 
 				if err != nil {
 					fmt.Println(err)

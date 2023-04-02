@@ -92,10 +92,10 @@ func Crawl(domain string, url string, c chan string, recursive bool, mutex *sync
 
 	}
 
-	mutex.Lock()
-	fmt.Println("adding to urls", filename+".html", url)
-	(*urls)[filename+".html"] = url
-	mutex.Unlock()
+	// mutex.Lock()
+	// fmt.Println("adding to urls", filename+".html", url)
+	// (*urls)[filename+".html"] = url
+	// mutex.Unlock()
 
 	if recursive {
 		crawlLinks(domain, filename, mutex, visited, urls)

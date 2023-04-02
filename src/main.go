@@ -11,7 +11,6 @@ import (
 	"github.com/deanrtaylor1/gosearch/src/bm25"
 	"github.com/deanrtaylor1/gosearch/src/server"
 	"github.com/deanrtaylor1/gosearch/src/tfidf"
-	"github.com/deanrtaylor1/gosearch/src/util"
 
 	webcrawler "github.com/deanrtaylor1/gosearch/src/web-crawler"
 )
@@ -152,7 +151,7 @@ func main() {
 	case "crawl":
 		if len(args) != 2 {
 			help()
-			log.Fatal("Path to folder must be provided.")
+			log.Fatal("Domain must be provided.")
 
 		}
 		domain := args[1]
@@ -161,11 +160,11 @@ func main() {
 		urls := make(map[string]string)
 
 		visitedMutex := sync.Mutex{}
-		dirName := webcrawler.Crawl(domain, domain, nil, true, &visitedMutex, &visited, &urls)
+		webcrawler.Crawl(domain, domain, nil, true, &visitedMutex, &visited, &urls)
 
-		visitedMutex.Lock()
-		defer visitedMutex.Unlock()
-		util.MapToJSON(urls, true, dirName+"/urls.json")
+		// visitedMutex.Lock()
+		// util.MapToJSON(urls, true, dirName+"/urls.json")
+		// visitedMutex.Unlock()
 	default:
 		help()
 	}

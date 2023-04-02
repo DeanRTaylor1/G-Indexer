@@ -108,6 +108,7 @@ func AddFolderToModel(dirPath string, model *Model) {
 				//stats := mapToSortedSlice(tf)
 			}
 			for token := range tf {
+				model.TermCount += 1
 				model.DF[token] += 1
 			}
 
@@ -161,7 +162,7 @@ func ComputeIDF(t string, N int, df DocFreq) float32 {
 	M := float64(df[t]) + 0.5
 
 	n := math.Max(float64(N)-float64(df[t])+0.5, M)
-
+	// fmt.Println(M, n, N)
 	//If M is 0, set it to 1 to avoid division by zero errors.
 
 	//using the log10 function to make the IDF values more readable
