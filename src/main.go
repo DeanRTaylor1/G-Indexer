@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"sync"
 
 	"os"
 
 	"github.com/deanrtaylor1/gosearch/src/bm25"
 	"github.com/deanrtaylor1/gosearch/src/server"
 	"github.com/deanrtaylor1/gosearch/src/tfidf"
-
 	webcrawler "github.com/deanrtaylor1/gosearch/src/web-crawler"
 )
 
@@ -26,6 +24,7 @@ func help() {
 }
 
 func main() {
+	os.Setenv("GOTRACEBACK", "all")
 
 	if len(os.Args) < 1 {
 		help()
@@ -155,16 +154,18 @@ func main() {
 
 		}
 		domain := args[1]
-		fmt.Println("crawling domain: ", domain)
-		visited := make(map[string]bool)
-		urls := make(map[string]string)
+		webcrawler.CrawlDomain(domain)
+		// fmt.Println("crawling domain: ", domain)
+		// visited := make(map[string]bool)
+		// urls := make(map[string]string)
 
-		visitedMutex := sync.Mutex{}
-		webcrawler.Crawl(domain, domain, nil, true, &visitedMutex, &visited, &urls)
+		// visitedMutex := sync.Mutex{}
+		// urlsMutex := sync.Mutex{}
+		// dirName := webcrawler.Crawl(domain, domain, nil, true, &visitedMutex, &visited, &urlsMutex, &urls, nil)
 
-		// visitedMutex.Lock()
+		// urlsMutex.Lock()
 		// util.MapToJSON(urls, true, dirName+"/urls.json")
-		// visitedMutex.Unlock()
+		// urlsMutex.Unlock()
 	default:
 		help()
 	}
