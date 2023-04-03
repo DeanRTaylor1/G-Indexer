@@ -1,5 +1,3 @@
-console.log("Shoo, rarrr");
-
 const queryInput = document.getElementById("queryInput");
 const form = document.getElementById("queryForm");
 const results = document.getElementById("results");
@@ -32,3 +30,21 @@ async function search(event, query) {
   }
   resultSpeedBox.innerText = apiResult.Message;
 }
+
+document.addEventListener("DOMContentLoaded", async () => {
+  const interval = setInterval(async () => {
+    console.log("ping");
+    const response = await fetch("/api/index-progress", {
+      method: "GET",
+      headers: {
+        "Content-Type": "text/plain",
+      },
+    });
+    const apiResult = await response.json();
+    console.log(apiResult);
+
+    if (apiResult.Data === 1) {
+      clearInterval(interval);
+    }
+  }, 1000);
+});

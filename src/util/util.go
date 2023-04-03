@@ -3,7 +3,7 @@ package util
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+
 	"log"
 	"os"
 
@@ -49,7 +49,7 @@ func MapToJSON(m map[string]string, createFile bool, filename string) string {
 }
 
 func SelectDirectory() string {
-	files, err := ioutil.ReadDir(".")
+	files, err := os.ReadDir(".")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -77,4 +77,13 @@ func SelectDirectory() string {
 	}
 
 	return selectedDirectory
+}
+
+func GetDirLength(dirName string) int {
+	files, err := os.ReadDir("./" + dirName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return len(files)
 }

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/deanrtaylor1/gosearch/src/lexer"
 	"github.com/deanrtaylor1/gosearch/src/util"
@@ -29,6 +30,7 @@ type DocData struct {
 }
 
 type Model struct {
+	Name string
 	TFPD TermFreqPerDoc
 	//DF is the Document Frequency of a term
 	DF DocFreq
@@ -37,6 +39,7 @@ type Model struct {
 	TermCount int
 	DocCount  int
 	UrlFiles  map[string]string
+	ModelLock *sync.Mutex
 }
 
 func getFileUrl(filePath string) (string, error) {
@@ -86,19 +89,23 @@ func AddFolderToModel(dirPath string, model *Model) {
 			}
 			defer f.Close()
 			decoder := json.NewDecoder(f)
+			model.ModelLock.Lock()
+
 			err = decoder.Decode(&model.UrlFiles)
 			if err != nil {
 				fmt.Println(err)
+				model.ModelLock.Unlock()
 				return
 			}
+			model.ModelLock.Unlock()
 			fmt.Println("\033[32mmapped urls\033[0m")
 			continue
 		}
-
+		model.ModelLock.Lock()
 		if model.UrlFiles == nil {
 			model.UrlFiles = make(map[string]string)
 		}
-
+		model.ModelLock.Unlock()
 		switch filepath.Ext(fi.Name()) {
 		case ".xhtml", ".xml":
 			filePath := dirPath + "/" + fi.Name()
@@ -120,10 +127,14 @@ func AddFolderToModel(dirPath string, model *Model) {
 				tf[token] += 1
 				//stats := mapToSortedSlice(tf)
 			}
+			model.ModelLock.Lock()
 			for token := range tf {
 				model.TermCount += 1
 				model.DF[token] += 1
 			}
+			model.ModelLock.Unlock()
+
+			model.ModelLock.Lock()
 			if _, exists := model.UrlFiles[filePath]; !exists {
 				fileUrl, err := getFileUrl(filePath)
 				if err != nil {
@@ -134,6 +145,7 @@ func AddFolderToModel(dirPath string, model *Model) {
 			}
 
 			model.TFPD[filePath] = ConvertToDocData(tf)
+			model.ModelLock.Unlock()
 
 		case ".html":
 			filePath := dirPath + "/" + fi.Name()
@@ -155,121 +167,18 @@ func AddFolderToModel(dirPath string, model *Model) {
 				tf[token] += 1
 				//stats := mapToSortedSlice(tf)
 			}
+			model.ModelLock.Lock()
 			for token := range tf {
 				model.TermCount += 1
 				model.DF[token] += 1
 			}
+			model.ModelLock.Unlock()
 			extension := filepath.Ext(filePath)
 			filePathWithoutExt := strings.TrimSuffix(filePath, extension)
 
+			model.ModelLock.Lock()
 			model.TFPD[filePathWithoutExt] = ConvertToDocData(tf)
-
-		default:
-			fmt.Fprint(os.Stderr, "\033[31mSkipping file:", fi.Name(), "(not HTML. .xhtml or .xml)\033[0m")
-			fmt.Println()
-			continue
-		}
-	}
-
-}
-
-func AddFolderToModelAsync(dirPath string, model *Model) {
-
-	dir, err := os.Open(dirPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer dir.Close()
-
-	fileInfos, err := dir.Readdir(-1)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, fi := range fileInfos {
-		if fi.IsDir() {
-			if fi.Name() == "specs" {
-				continue
-			}
-			subDirPath := filepath.Join(dirPath, fi.Name())
-			AddFolderToModel(subDirPath, model)
-		}
-		model.DocCount += 1
-
-		if fi.Name() == "urls.json" {
-			f, err := os.Open(dirPath + "/" + fi.Name())
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			defer f.Close()
-			decoder := json.NewDecoder(f)
-			err = decoder.Decode(&model.UrlFiles)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			fmt.Println("\033[32mmapped urls\033[0m")
-			continue
-		}
-
-		switch filepath.Ext(fi.Name()) {
-		case ".xhtml", ".xml":
-			filePath := dirPath + "/" + fi.Name()
-			fmt.Println("Indexing file: ", filePath)
-			content := lexer.ReadEntireXMLFile(filePath)
-			fileSize := len(content)
-
-			fmt.Println(filePath, " => ", fileSize)
-			tf := make(TermFreq)
-
-			lexer := lexer.NewLexer(content)
-			for {
-				token, err := lexer.Next()
-				if err != nil {
-					fmt.Println("EOF")
-					break
-				}
-
-				tf[token] += 1
-				//stats := mapToSortedSlice(tf)
-			}
-			for token := range tf {
-				model.TermCount += 1
-				model.DF[token] += 1
-			}
-
-			model.TFPD[filePath] = ConvertToDocData(tf)
-
-		case ".html":
-			filePath := dirPath + "/" + fi.Name()
-			fmt.Println("Indexing file: ", filePath)
-			content := lexer.ReadEntireHTMLFile(filePath)
-			fileSize := len(content)
-
-			fmt.Println(filePath, " => ", fileSize)
-			tf := make(TermFreq)
-
-			lexer := lexer.NewLexer(content)
-			for {
-				token, err := lexer.Next()
-				if err != nil {
-					fmt.Println("EOF")
-					break
-				}
-
-				tf[token] += 1
-				//stats := mapToSortedSlice(tf)
-			}
-			for token := range tf {
-				model.TermCount += 1
-				model.DF[token] += 1
-			}
-			extension := filepath.Ext(filePath)
-			filePathWithoutExt := strings.TrimSuffix(filePath, extension)
-
-			model.TFPD[filePathWithoutExt] = ConvertToDocData(tf)
-
+			model.ModelLock.Unlock()
 		default:
 			fmt.Fprint(os.Stderr, "\033[31mSkipping file:", fi.Name(), "(not HTML. .xhtml or .xml)\033[0m")
 			fmt.Println()

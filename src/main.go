@@ -26,17 +26,12 @@ func help() {
 	fmt.Println("    serve:                           start local http server")
 }
 
-var indexData sync.Map
-
 func main() {
-
 	if len(os.Args) < 1 {
 		help()
 		os.Exit(1)
 	}
-
 	args := os.Args[1:]
-
 	if len(args) < 1 {
 		help()
 		os.Exit(1)
@@ -48,13 +43,22 @@ func main() {
 		selectedDirectory := strings.Replace(util.SelectDirectory(), "○ ", "", -1)
 		fmt.Printf("Selected directory: %s\n", selectedDirectory)
 		fmt.Println("Indexing with bm25")
+
 		model := &bm25.Model{
-			TFPD: make(bm25.TermFreqPerDoc),
-			DF:   make(bm25.DocFreq),
+			Name:      selectedDirectory,
+			TFPD:      make(bm25.TermFreqPerDoc),
+			DF:        make(bm25.DocFreq),
+			ModelLock: &sync.Mutex{},
 		}
-		bm25.AddFolderToModel("./"+selectedDirectory, model)
-		model.DA = float32(model.TermCount) / float32(model.DocCount)
-		server.Serve(*model)
+		go func() {
+			bm25.AddFolderToModel("./"+selectedDirectory, model)
+			model.ModelLock.Lock()
+			model.DA = float32(model.TermCount) / float32(model.DocCount)
+			fmt.Println(model.DA)
+			model.ModelLock.Unlock()
+		}()
+
+		server.Serve(model)
 	case "index":
 
 		if len(args) < 2 {
@@ -114,27 +118,26 @@ func main() {
 			log.Fatal("Path to folder must be provided.")
 		}
 		indexPath := args[1]
-		//tfIndex, err := Lexer.CheckIndex(indexPath)
 		if len(args) > 2 && args[2] == "-a" {
 
 			switch args[3] {
-			case "tfidf":
-				f, err := os.Open(indexPath)
-				if err != nil {
-					log.Fatal(err)
+			// case "tfidf":
+			// 	f, err := os.Open(indexPath)
+			// 	if err != nil {
+			// 		log.Fatal(err)
 
-				}
-				defer f.Close()
+			// 	}
+			// 	defer f.Close()
 
-				var model tfidf.Model
+			// 	var model tfidf.Model
 
-				err = json.NewDecoder(f).Decode(&model)
-				if err != nil {
-					log.Fatal(err)
+			// 	err = json.NewDecoder(f).Decode(&model)
+			// 	if err != nil {
+			// 		log.Fatal(err)
 
-				}
+			// 	}
 
-				server.Serve(model)
+			// 	server.Serve(model)
 			case "bm25":
 				f, err := os.Open(indexPath)
 				if err != nil {
@@ -151,7 +154,7 @@ func main() {
 
 				}
 
-				server.Serve(model)
+				server.Serve(&model)
 			default:
 				fmt.Println("Invalid algorithm")
 				help()
@@ -169,17 +172,6 @@ func main() {
 		}
 		domain := args[1]
 		webcrawler.CrawlDomain(domain)
-		// fmt.Println("crawling domain: ", domain)
-		// visited := make(map[string]bool)
-		// urls := make(map[string]string)
-
-		// visitedMutex := sync.Mutex{}
-		// urlsMutex := sync.Mutex{}
-		// dirName := webcrawler.Crawl(domain, domain, nil, true, &visitedMutex, &visited, &urlsMutex, &urls, nil)
-
-		// urlsMutex.Lock()
-		// util.MapToJSON(urls, true, dirName+"/urls.json")
-		// urlsMutex.Unlock()
 	default:
 		help()
 	}
