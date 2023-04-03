@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/deanrtaylor1/gosearch/src/lexer"
 	"github.com/deanrtaylor1/gosearch/src/util"
@@ -34,6 +35,7 @@ type Model struct {
 	DA        float32
 	TermCount int
 	DocCount  int
+	UrlFiles  map[string]string
 }
 
 func AddFolderToModel(dirPath string, model *Model) {
@@ -58,6 +60,24 @@ func AddFolderToModel(dirPath string, model *Model) {
 			AddFolderToModel(subDirPath, model)
 		}
 		model.DocCount += 1
+
+		if fi.Name() == "urls.json" {
+			f, err := os.Open(dirPath + "/" + fi.Name())
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			defer f.Close()
+			decoder := json.NewDecoder(f)
+			err = decoder.Decode(&model.UrlFiles)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			fmt.Println("\033[32mmapped urls\033[0m")
+			continue
+		}
+
 		switch filepath.Ext(fi.Name()) {
 		case ".xhtml", ".xml":
 			filePath := dirPath + "/" + fi.Name()
@@ -87,7 +107,6 @@ func AddFolderToModel(dirPath string, model *Model) {
 			model.TFPD[filePath] = ConvertToDocData(tf)
 
 		case ".html":
-			fmt.Println("TODO IMPLEMENT HTML PARSER")
 			filePath := dirPath + "/" + fi.Name()
 			fmt.Println("Indexing file: ", filePath)
 			content := lexer.ReadEntireHTMLFile(filePath)
@@ -111,8 +130,10 @@ func AddFolderToModel(dirPath string, model *Model) {
 				model.TermCount += 1
 				model.DF[token] += 1
 			}
+			extension := filepath.Ext(filePath)
+			filePathWithoutExt := strings.TrimSuffix(filePath, extension)
 
-			model.TFPD[filePath] = ConvertToDocData(tf)
+			model.TFPD[filePathWithoutExt] = ConvertToDocData(tf)
 
 		default:
 			fmt.Fprint(os.Stderr, "\033[31mSkipping file:", fi.Name(), "(not HTML. .xhtml or .xml)\033[0m")

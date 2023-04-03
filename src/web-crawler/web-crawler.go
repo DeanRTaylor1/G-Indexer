@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/deanrtaylor1/gosearch/src/lexer"
+	"github.com/deanrtaylor1/gosearch/src/util"
 )
 
 func closeFile(f *os.File, errChan chan<- error) {
@@ -84,22 +85,22 @@ func crawlPage(urlToCrawl string, foundUrls chan<- string, dirName string, errCh
 
 	// extract the links from the file
 	links := lexer.ParseLinks(string(file))
-	fmt.Println("parsing links", links)
+	// fmt.Println("parsing links", links)
 	for _, link := range links {
 		fmt.Println(link)
 		// check if the link is a relative link
-		if strings.HasPrefix(link, "/") {
-			fmt.Println("link is relative")
-			// create a new url with the domain
-			link = fullUrl.Scheme + "://" + fullUrl.Host + link
-			fmt.Println("new link", link)
+		parsedLink, err := url.Parse(link)
+		if err != nil {
+			errChan <- fmt.Errorf("error parsing link: %w", err)
+			continue
 		}
 
-		// check if the link is a valid url
-		_, err := url.Parse(link)
-		if err != nil {
-			errChan <- fmt.Errorf("error parsing url file: %w", err)
-			continue
+		if !parsedLink.IsAbs() {
+			fmt.Println("link is relative")
+			// Resolve the relative link against the base URL
+			resolvedLink := fullUrl.ResolveReference(parsedLink)
+			link = resolvedLink.String()
+			fmt.Println("new link", link)
 		}
 
 		foundUrls <- link
@@ -112,8 +113,10 @@ func CrawlDomain(domain string) {
 	fmt.Println("crawling domain: ", domain)
 
 	visited := make(map[string]bool)
+	urlFiles := make(map[string]string)
 
 	visitedMutex := sync.Mutex{}
+	urlsMutex := sync.Mutex{}
 
 	fullUrl, err := url.Parse(domain)
 	if err != nil {
@@ -162,6 +165,14 @@ func CrawlDomain(domain string) {
 			if !visited[newURL] {
 				fmt.Println("URL is new, adding to the queue: ", newURL)
 				visited[newURL] = true
+				urlPath, err := url.Parse(newURL)
+				if err != nil {
+					fmt.Println(err)
+				}
+				fileName := strings.ReplaceAll(urlPath.Path, "/", "_")
+				urlsMutex.Lock()
+				urlFiles[fileName] = newURL
+				urlsMutex.Unlock()
 				wg.Add(1)
 				go func(urlToCrawl string) {
 					defer wg.Done()
@@ -176,222 +187,12 @@ func CrawlDomain(domain string) {
 			fmt.Printf("Error: %v\n", err)
 
 		case <-done:
+			urlsMutex.Lock()
+			util.MapToJSON(urlFiles, true, dirName+"/urls.json")
+			urlsMutex.Unlock()
 			return
 		}
+
 	}
+
 }
-
-// Wait for all goroutines to finish
-
-// 	urlsMutex.Lock()
-// 	util.MapToJSON(urls, true, dirName+"/urls.json")
-// 	urlsMutex.Unlock()
-// }
-
-// func Crawl(domain string, url string, c chan string, recursive bool, visitedMutex *sync.Mutex, visited *map[string]bool, urlsMutex *sync.Mutex, urls *map[string]string, wg *sync.WaitGroup) string {
-// 	//fmt.Println((*visited))
-// 	if wg != nil {
-// 		defer wg.Done()
-// 	}
-// 	fmt.Println("crawling: ", url)
-// 	visitedMutex.Lock()
-
-// 	if (*visited)[url] {
-// 		visitedMutex.Unlock()
-// 		if c != nil {
-// 			c <- fmt.Sprintf("error: %s", "already visited")
-// 		}
-// 		return fmt.Sprintf("error: %s", "already visited")
-// 	}
-// 	(*visited)[url] = true
-// 	visitedMutex.Unlock()
-// 	fmt.Println("initiating get request", url)
-
-// 	resp, err := httpClient.Get(url)
-
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		if c != nil {
-// 			c <- fmt.Sprintf("error: %s", err)
-// 		}
-// 		return fmt.Sprintf("error: %s", err)
-// 	}
-
-// 	defer resp.Body.Close()
-// 	fmt.Println(resp.StatusCode)
-
-// 	body, err := io.ReadAll(resp.Body)
-// 	fmt.Println("accessing http body", url)
-// 	if err != nil {
-// 		if c != nil {
-// 			c <- fmt.Sprintf("error: %s", err)
-// 		}
-// 		fmt.Println(err)
-// 		return fmt.Sprintf("error: %s", err)
-// 	}
-
-// 	dirName := sanitizeDirectoryName(domain)
-// 	fmt.Println("creating dir", url)
-// 	err = os.MkdirAll(dirName, os.ModePerm)
-
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		if c != nil {
-// 			c <- fmt.Sprintf("error: %s", err)
-// 		}
-// 		return fmt.Sprintf("error: %s", err)
-// 	}
-// 	filename := url[len(domain):]
-// 	fmt.Println(filename, url, domain)
-// 	if domain == url {
-// 		filename = "index"
-// 	}
-// 	filename = strings.ReplaceAll(filename, "/", "_")
-
-// 	f, err := os.Create(dirName + "/" + filename + ".html")
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		if c != nil {
-// 			c <- fmt.Sprintf("error: %s", err)
-// 		}
-// 		return fmt.Sprintf("error: %s", err)
-// 	}
-// 	l, err := f.Write(body)
-
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		if c != nil {
-// 			c <- fmt.Sprintf("error: %s", err)
-// 		}
-// 		f.Close()
-// 		return fmt.Sprintf("error: %s", err)
-// 	}
-// 	fmt.Println(l, "bytes written successfully")
-// 	err = f.Close()
-// 	if err != nil {
-// 		if c != nil {
-// 			c <- fmt.Sprintf("error: %s", err)
-// 		}
-// 		fmt.Println(err)
-
-// 	}
-
-// 	urlsMutex.Lock()
-// 	(*urls)[filename+".html"] = url
-// 	urlsMutex.Unlock()
-// 	fmt.Println("finished crawling: ", url)
-
-// 	if recursive {
-// 		crawlLinks(domain, filename, visitedMutex, visited, urlsMutex, urls)
-// 	}
-// 	// if c != nil {
-// 	// 	wg.Done()
-// 	// }
-
-// 	return dirName
-// }
-
-// func crawlLinks(domain string, filename string, visitedMutex *sync.Mutex, visited *map[string]bool, urlsMutex *sync.Mutex, urls *map[string]string) {
-// 	// read the contents of the file
-// 	dirName := sanitizeDirectoryName(domain)
-
-// 	file, err := os.ReadFile(dirName + "/" + filename + ".html")
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	// extract the links from the file
-// 	links := lexer.ParseLinks(string(file))
-
-// 	// create a channel to communicate with the Go Routines
-// 	c := make(chan string, 10)
-
-// 	// create a wait group to wait for all the Go Routines to finish
-// 	wg := sync.WaitGroup{}
-
-// 	// loop through the links and create a Go Routine for each link
-// 	for _, link := range links {
-// 		url, err := normalizeUrl(domain, link)
-// 		//fmt.Println(url, err)
-// 		if err != nil {
-// 			fmt.Println(err)
-// 			continue
-// 		}
-// 		wg.Add(1)
-
-// 		// create a closure to capture the link variable and call the Crawl function
-// 		go func(link string) {
-// 			Crawl(domain, url, c, true, visitedMutex, visited, urlsMutex, urls, &wg)
-// 			//wg.Done()
-// 		}(link)
-// 		if len(c) >= 10 {
-// 			<-c
-// 		}
-// 	}
-
-// 	// create another Go Routine to wait for the wait group to finish and close the channel
-
-// 	wg.Wait()
-// 	close(c)
-
-// 	// read from the channel and print the urls
-// 	for url := range c {
-// 		fmt.Println(url)
-// 	}
-// 	//fmt.Println(*urls)
-// 	//mutex.Lock()
-// 	//defer mutex.Unlock()
-// 	//lexer.MapToJSON(*urls, true, dirName+"/urls.json")
-
-// }
-
-// func normalizeUrl(baseUrl string, href string) (string, error) {
-// 	// Parse the base URL
-// 	base, err := nu.Parse(baseUrl)
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	// Parse the relative URL
-// 	rel, err := nu.Parse(href)
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	// Resolve the relative URL against the base URL
-// 	abs := base.ResolveReference(rel)
-// 	// Check if the resulting URL is within the specified domain
-// 	if abs.Host != base.Host {
-// 		return "", errors.New("URL not within specified domain")
-// 	}
-
-// 	if !strings.HasPrefix(abs.String(), baseUrl) {
-// 		return "", fmt.Errorf("URL not within domain: %s", abs.String())
-// 	}
-
-// 	// Return the absolute URL as a string
-// 	return abs.String(), nil
-// }
-
-// func sanitizeDirectoryName(dirName string) string {
-// 	// Regular expression to match characters not allowed in a directory name
-// 	// See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
-// 	var invalidChars = regexp.MustCompile(`[\x00-\x1f<>:"/\\|?*\x7f]`)
-
-// 	// Replace invalid characters with a space
-// 	sanitized := invalidChars.ReplaceAllString(dirName, " ")
-
-// 	// Remove leading/trailing spaces and dots
-// 	sanitized = strings.Trim(sanitized, " .")
-
-// 	// Remove any remaining spaces and replace them with underscores
-// 	sanitized = strings.ReplaceAll(sanitized, " ", "_")
-
-// 	sanitized = strings.ReplaceAll(sanitized, ":", "")
-
-// 	sanitized = strings.ReplaceAll(sanitized, "https", "")
-
-// 	sanitized = strings.ReplaceAll(sanitized, "http", "")
-
-// 	return sanitized
-// }

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/deanrtaylor1/gosearch/src/bm25"
@@ -127,11 +128,11 @@ func handleRequests(model interface{}) http.HandlerFunc {
 							break
 						}
 
-						fmt.Println(bm25.ComputeTF(token, table.TermCount, table.Terms, v.DA), bm25.ComputeIDF(token, len(v.TFPD), v.DF))
+						// fmt.Println(bm25.ComputeTF(token, table.TermCount, table.Terms, v.DA), bm25.ComputeIDF(token, len(v.TFPD), v.DF))
 						rank += bm25.ComputeTF(token, table.TermCount, table.Terms, v.DA) * bm25.ComputeIDF(token, len(v.TFPD), v.DF)
 						count += 1
 						//stats := mapToSortedSlice(tf)
-						fmt.Println(token, " => ", rank)
+						// fmt.Println(token, " => ", rank)
 					}
 					result = append(result, struct {
 						Path string  `json:"path"`
@@ -145,7 +146,27 @@ func handleRequests(model interface{}) http.HandlerFunc {
 				for i := 0; i < 20; i++ {
 					fmt.Println(result[i].Path, " => ", result[i].TF)
 				}
+
+				// for i, v := range v.UrlFiles {
+				// 	fmt.Println(i, v)
+				// }
+
+				if result[0].TF > 0 {
+					if v.UrlFiles != nil {
+						for i := range result {
+							paths := strings.Split(result[i].Path, "/")
+							result[i].Path = v.UrlFiles[paths[len(paths)-1]]
+						}
+
+					}
+
+				}
 				jsonBytes, err := json.Marshal(result[:20])
+
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
 
 				if result[0].TF == 0 {
 					fmt.Println("No results found, trying again with tfidf")
@@ -180,6 +201,13 @@ func handleRequests(model interface{}) http.HandlerFunc {
 					// for i := 0; i < 20; i++ {
 					// 	fmt.Println(result2[i].Path, " => ", result2[i].TF)
 					// }
+
+					if v.UrlFiles != nil {
+						for i := range result {
+							paths := strings.Split(result2[i].Path, "/")
+							result2[i].Path = v.UrlFiles[paths[len(paths)-1]]
+						}
+					}
 					jsonBytes, err = json.Marshal(result2[:20])
 					if err != nil {
 						fmt.Println(err)
@@ -188,6 +216,7 @@ func handleRequests(model interface{}) http.HandlerFunc {
 					for i := 0; i < 20; i++ {
 						fmt.Println(result2[i].Path, " => ", result2[i].TF)
 					}
+
 				}
 
 				// for i, v := range result {

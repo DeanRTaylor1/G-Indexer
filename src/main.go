@@ -24,7 +24,7 @@ func help() {
 }
 
 func main() {
-	os.Setenv("GOTRACEBACK", "all")
+	os.Setenv("GOTRACEBACK", "none")
 
 	if len(os.Args) < 1 {
 		help()
@@ -61,7 +61,6 @@ func main() {
 				tfidf.ModelToJSON(*model, true, "index.json")
 
 			case "bm25":
-				fmt.Println("TODO")
 				fmt.Println("Indexing with bm25")
 				model := &bm25.Model{
 					TFPD: make(bm25.TermFreqPerDoc),
@@ -74,16 +73,16 @@ func main() {
 			default:
 				fmt.Println("Invalid algorithm")
 				help()
-
 			}
 		} else {
-			fmt.Println("No flag found, indexing with tfidf")
-			model := &tfidf.Model{
-				TFPD: make(tfidf.TermFreqPerDoc),
-				DF:   make(tfidf.DocFreq),
+			fmt.Println("Indexing with bm25")
+			model := &bm25.Model{
+				TFPD: make(bm25.TermFreqPerDoc),
+				DF:   make(bm25.DocFreq),
 			}
-			tfidf.AddFolderToModel(dirPath, model)
-			tfidf.ModelToJSON(*model, true, "index.json")
+			bm25.AddFolderToModel(dirPath, model)
+			model.DA = float32(model.TermCount) / float32(model.DocCount)
+			bm25.ModelToJSON(*model, true, "index.json")
 		}
 
 	case "search":
