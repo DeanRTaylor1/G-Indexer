@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"sync"
 
 	"os"
 
@@ -42,22 +41,23 @@ func main() {
 	case "start":
 		selectedDirectory := strings.Replace(util.SelectDirectory(), "○ ", "", -1)
 		fmt.Printf("Selected directory: %s\n", selectedDirectory)
-		fmt.Println("Indexing with bm25")
 
-		model := &bm25.Model{
-			Name:      selectedDirectory,
-			TFPD:      make(bm25.TermFreqPerDoc),
-			DF:        make(bm25.DocFreq),
-			ModelLock: &sync.Mutex{},
+		model := bm25.NewEmptyModel()
+		if selectedDirectory == "Start server" {
+			fmt.Println("Starting server with no Index")
+
+		} else {
+			fmt.Println("Starting server and indexing directory: ", selectedDirectory)
+			go func() {
+				bm25.AddFolderToModel("./"+selectedDirectory, model)
+				model.ModelLock.Lock()
+				model.DA = float32(model.TermCount) / float32(model.DocCount)
+				fmt.Println(model.TermCount, model.DocCount, model.DA)
+
+				model.ModelLock.Unlock()
+			}()
+
 		}
-		go func() {
-			bm25.AddFolderToModel("./"+selectedDirectory, model)
-			model.ModelLock.Lock()
-			model.DA = float32(model.TermCount) / float32(model.DocCount)
-			fmt.Println(model.DA)
-			model.ModelLock.Unlock()
-		}()
-
 		server.Serve(model)
 	case "index":
 
@@ -171,7 +171,7 @@ func main() {
 
 		}
 		domain := args[1]
-		webcrawler.CrawlDomain(domain)
+		webcrawler.CrawlDomainV2(domain)
 	default:
 		help()
 	}

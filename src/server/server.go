@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/deanrtaylor1/gosearch/src/bm25"
@@ -97,7 +96,7 @@ func handleRequests(model *bm25.Model) http.HandlerFunc {
 						break
 					}
 
-					//fmt.Println(bm25.ComputeTF(token, table.TermCount, table.Terms, model.DA), bm25.ComputeIDF(token, len(model.TFPD), model.DF), model.DA)
+					fmt.Println(bm25.ComputeTF(token, table.TermCount, table.Terms, model.DA), bm25.ComputeIDF(token, len(model.TFPD), model.DF), model.DA)
 					rank += bm25.ComputeTF(token, table.TermCount, table.Terms, model.DA) * bm25.ComputeIDF(token, len(model.TFPD), model.DF)
 					count += 1
 					//stats := mapToSortedSlice(tf)
@@ -118,15 +117,15 @@ func handleRequests(model *bm25.Model) http.HandlerFunc {
 			// 	fmt.Println(i, v)
 			// }
 
-			if result[0].TF > 0 && model.UrlFiles != nil {
-				for i := range result {
-					paths := strings.Split(result[i].Path, "/")
-					//fmt.Println(paths)
-					result[i].Path = model.UrlFiles[paths[len(paths)-1]]
+			// if result[0].TF > 0 && model.UrlFiles != nil {
+			// 	for i := range result {
+			// 		paths := strings.Split(result[i].Path, "/")
+			// 		//fmt.Println(paths)
+			// 		result[i].Path = model.UrlFiles[paths[len(paths)-1]]
 
-				}
+			// 	}
 
-			}
+			// }
 
 			if err != nil {
 				fmt.Println(err)
@@ -135,9 +134,7 @@ func handleRequests(model *bm25.Model) http.HandlerFunc {
 			var result2 []resultsMap
 			if result[0].TF == 0 {
 				fmt.Println("No results found, trying again with tfidf")
-
 				for path, table := range model.TFPD {
-
 					querylexer := lexer.NewLexer(string(requestBodyBytes))
 					var rank float32 = 0
 					for {
@@ -155,18 +152,19 @@ func handleRequests(model *bm25.Model) http.HandlerFunc {
 
 				}
 
-				if model.UrlFiles != nil {
-					for i := range result {
-						paths := strings.Split(result2[i].Path, "/")
-						result2[i].Path = model.UrlFiles[paths[len(paths)-1]]
-					}
-				}
+				// if model.UrlFiles != nil {
+				// 	for i := range result {
+				// 		paths := strings.Split(result2[i].Path, "/")
+				// 		result2[i].Path = model.UrlFiles[paths[len(paths)-1]]
+				// 	}
+				// }
 
 				for i := 0; i < 20; i++ {
 					fmt.Println(result2[i].Path, " => ", result2[i].TF)
 				}
 
 			}
+			fmt.Println(result2)
 
 			var data []resultsMap
 			if result2 != nil {

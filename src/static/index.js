@@ -7,6 +7,7 @@ async function search(event, query) {
   event.preventDefault();
   console.log(query);
   results.innerHTML = "";
+  resultSpeedBox.innerText = "";
   const response = await fetch("/api/search", {
     method: "POST",
     headers: {

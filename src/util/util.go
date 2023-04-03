@@ -32,6 +32,16 @@ func JSONToFile(j []byte, filename string) {
 }
 
 func MapToJSON(m map[string]string, createFile bool, filename string) string {
+	// Convert map[string]string to map[string]interface{}
+	mi := make(map[string]interface{}, len(m))
+	for k, v := range m {
+		mi[k] = v
+	}
+
+	return MapToJSONGeneric(mi, createFile, filename)
+}
+
+func MapToJSONGeneric(m map[string]interface{}, createFile bool, filename string) string {
 	if len(m) == 0 {
 		fmt.Println("map is empty")
 		return ""

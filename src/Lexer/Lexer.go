@@ -157,6 +157,21 @@ func ReadEntireHTMLFile(filePath string) string {
 		}
 	}
 }
+
+func ParseHtmlTextContent(htmlContent string) string {
+	var content string
+
+	d := html.NewTokenizer(strings.NewReader(htmlContent))
+	for {
+		tt := d.Next()
+		switch tt {
+		case html.ErrorToken:
+			return content
+		case html.TextToken:
+			content += string(d.Text())
+		}
+	}
+}
 func MapToSortedSlice(m map[string]int) (stats []stat) {
 	for k, v := range m {
 		stats = append(stats, struct {

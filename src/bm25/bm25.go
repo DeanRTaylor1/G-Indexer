@@ -13,6 +13,7 @@ import (
 
 	"github.com/deanrtaylor1/gosearch/src/lexer"
 	"github.com/deanrtaylor1/gosearch/src/util"
+	webcrawler "github.com/deanrtaylor1/gosearch/src/web-crawler"
 )
 
 const (
@@ -40,6 +41,15 @@ type Model struct {
 	DocCount  int
 	UrlFiles  map[string]string
 	ModelLock *sync.Mutex
+}
+
+func NewEmptyModel() *Model {
+	return &Model{
+		TFPD:      make(map[string]DocData),
+		DF:        make(map[string]int),
+		UrlFiles:  make(map[string]string),
+		ModelLock: &sync.Mutex{},
+	}
 }
 
 func getFileUrl(filePath string) (string, error) {
@@ -79,7 +89,6 @@ func AddFolderToModel(dirPath string, model *Model) {
 			subDirPath := filepath.Join(dirPath, fi.Name())
 			AddFolderToModel(subDirPath, model)
 		}
-		model.DocCount += 1
 
 		if fi.Name() == "urls.json" {
 			f, err := os.Open(dirPath + "/" + fi.Name())
@@ -101,6 +110,71 @@ func AddFolderToModel(dirPath string, model *Model) {
 			fmt.Println("\033[32mmapped urls\033[0m")
 			continue
 		}
+
+		if fi.Name() == "cachedData.json" {
+			f, err := os.Open(dirPath + "/" + fi.Name())
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			defer f.Close()
+			decoder := json.NewDecoder(f)
+
+			var dataMap map[string]webcrawler.IndexedData
+			err = decoder.Decode(&dataMap)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			//fmt.Println(dataMap)
+
+			for filePath, v := range dataMap {
+				model.DocCount += 1
+				//fmt.Println(filePath)
+				content := v.Content
+				//fmt.Println(filePath, content)
+
+				fileSize := len(content)
+
+				fmt.Println(filePath, " => ", fileSize)
+				tf := make(TermFreq)
+
+				lexer := lexer.NewLexer(content)
+				for {
+					token, err := lexer.Next()
+					if err != nil {
+						fmt.Println("EOF")
+						break
+					}
+
+					tf[token] += 1
+					//stats := mapToSortedSlice(tf)
+					//fmt.Println(filePath, " => ", token, " => ", tf[token])
+				}
+				model.ModelLock.Lock()
+				for token := range tf {
+					model.TermCount += 1
+					model.DF[token] += 1
+				}
+				model.ModelLock.Unlock()
+
+				model.ModelLock.Lock()
+				if _, exists := model.UrlFiles[filePath]; !exists {
+					fileUrl, err := getFileUrl(filePath)
+					if err != nil {
+						log.Println(err)
+					} else {
+						model.UrlFiles[filePath] = fileUrl
+					}
+				}
+
+				model.TFPD[filePath] = ConvertToDocData(tf)
+				model.ModelLock.Unlock()
+			}
+
+			continue
+		}
+
 		model.ModelLock.Lock()
 		if model.UrlFiles == nil {
 			model.UrlFiles = make(map[string]string)
@@ -108,6 +182,7 @@ func AddFolderToModel(dirPath string, model *Model) {
 		model.ModelLock.Unlock()
 		switch filepath.Ext(fi.Name()) {
 		case ".xhtml", ".xml":
+
 			filePath := dirPath + "/" + fi.Name()
 			fmt.Println("Indexing file: ", filePath)
 			content := lexer.ReadEntireXMLFile(filePath)
@@ -128,6 +203,7 @@ func AddFolderToModel(dirPath string, model *Model) {
 				//stats := mapToSortedSlice(tf)
 			}
 			model.ModelLock.Lock()
+			model.DocCount += 1
 			for token := range tf {
 				model.TermCount += 1
 				model.DF[token] += 1
@@ -168,6 +244,7 @@ func AddFolderToModel(dirPath string, model *Model) {
 				//stats := mapToSortedSlice(tf)
 			}
 			model.ModelLock.Lock()
+			model.DocCount += 1
 			for token := range tf {
 				model.TermCount += 1
 				model.DF[token] += 1
