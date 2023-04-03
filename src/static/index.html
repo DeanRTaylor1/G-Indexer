@@ -7,11 +7,25 @@
     <title>GoSearch</title>
     <script src="index.js" defer></script>
   </head>
-  <body>
-    <h1>Query</h1>
-    <form id="queryForm">
-      <input id="query" type="text" />
-    </form>
+  <body style="font-family: Arial, Helvetica, sans-serif">
+    <div
+      id="query"
+      style="
+        display: flex;
+        flex-direction: row;
+        gap: 8px;
+        justify-content: start;
+        align-items: center;
+      "
+    >
+      <h1>Query:</h1>
+
+      <form id="queryForm">
+        <input id="queryInput" type="text" />
+      </form>
+      <p id="resultSpeedBox"></p>
+    </div>
+
     <h1>Results</h1>
     <div
       id="results"

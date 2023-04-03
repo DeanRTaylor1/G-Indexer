@@ -3,7 +3,11 @@ package util
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
+
+	"github.com/AlecAivazis/survey/v2"
 )
 
 func JSONToFile(j []byte, filename string) {
@@ -42,4 +46,35 @@ func MapToJSON(m map[string]string, createFile bool, filename string) string {
 		JSONToFile(b, filename)
 	}
 	return string(b)
+}
+
+func SelectDirectory() string {
+	files, err := ioutil.ReadDir(".")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	directories := []string{}
+	for _, f := range files {
+		if f.IsDir() {
+			if f.Name() == "src" || f.Name() == ".git" {
+				continue
+			}
+			directories = append(directories, "○ "+f.Name())
+		}
+	}
+	directories = append(directories, "○ Start server")
+
+	prompt := &survey.Select{
+		Message: "Select a directory to index:",
+		Options: directories,
+	}
+
+	var selectedDirectory string
+	err = survey.AskOne(prompt, &selectedDirectory)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return selectedDirectory
 }

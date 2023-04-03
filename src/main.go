@@ -4,12 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
+	"sync"
 
 	"os"
 
 	"github.com/deanrtaylor1/gosearch/src/bm25"
 	"github.com/deanrtaylor1/gosearch/src/server"
 	"github.com/deanrtaylor1/gosearch/src/tfidf"
+	"github.com/deanrtaylor1/gosearch/src/util"
 	webcrawler "github.com/deanrtaylor1/gosearch/src/web-crawler"
 )
 
@@ -23,8 +26,9 @@ func help() {
 	fmt.Println("    serve:                           start local http server")
 }
 
+var indexData sync.Map
+
 func main() {
-	os.Setenv("GOTRACEBACK", "none")
 
 	if len(os.Args) < 1 {
 		help()
@@ -40,6 +44,17 @@ func main() {
 	program := args[0]
 
 	switch program {
+	case "start":
+		selectedDirectory := strings.Replace(util.SelectDirectory(), "○ ", "", -1)
+		fmt.Printf("Selected directory: %s\n", selectedDirectory)
+		fmt.Println("Indexing with bm25")
+		model := &bm25.Model{
+			TFPD: make(bm25.TermFreqPerDoc),
+			DF:   make(bm25.DocFreq),
+		}
+		bm25.AddFolderToModel("./"+selectedDirectory, model)
+		model.DA = float32(model.TermCount) / float32(model.DocCount)
+		server.Serve(*model)
 	case "index":
 
 		if len(args) < 2 {

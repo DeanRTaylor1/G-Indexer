@@ -17,8 +17,14 @@ import (
 	"github.com/tebeka/snowball"
 )
 
+type resultsMap struct {
+	Path string  `json:"path"`
+	TF   float32 `json:"tf"`
+}
+
 type Response struct {
-	Message string `json:"Message"`
+	Message string       `json:"Message"`
+	Data    []resultsMap `json:"Data"`
 }
 
 /*type SearchRequestBody struct {*/
@@ -52,10 +58,7 @@ func handleRequests(model interface{}) http.HandlerFunc {
 					return
 				}
 				fmt.Println(string(requestBodyBytes))
-				var result []struct {
-					Path string  `json:"path"`
-					TF   float32 `json:"tf"`
-				}
+				var result []resultsMap
 
 				count := 0
 				for path, table := range v.TFPD {
@@ -73,10 +76,7 @@ func handleRequests(model interface{}) http.HandlerFunc {
 						//stats := mapToSortedSlice(tf)
 						//fmt.Println(token, " => ", rank)
 					}
-					result = append(result, struct {
-						Path string  `json:"path"`
-						TF   float32 `json:"tf"`
-					}{path, rank})
+					result = append(result, resultsMap{path, rank})
 					sort.Slice(result, func(i, j int) bool {
 						return result[i].TF > result[j].TF
 					})
@@ -89,7 +89,12 @@ func handleRequests(model interface{}) http.HandlerFunc {
 				// for i, v := range result {
 				// 	fmt.Println(i, v.Path, " => ", v.TF)
 				// }
-				jsonBytes, err := json.Marshal(result[:20])
+				elapsed := time.Since(start)
+				response := &Response{
+					Message: fmt.Sprintf("Queried %d documents in %d Ms", count, elapsed.Milliseconds()),
+					Data:    result[:20],
+				}
+				jsonBytes, err := json.Marshal(response)
 
 				if err != nil {
 					fmt.Println(err)
@@ -101,7 +106,7 @@ func handleRequests(model interface{}) http.HandlerFunc {
 					fmt.Println(err)
 					return
 				}
-				elapsed := time.Since(start)
+
 				fmt.Println("------------------")
 				fmt.Println("Queried ", count, " documents in ", elapsed.Milliseconds(), " ms")
 				fmt.Println("------------------")
@@ -112,10 +117,7 @@ func handleRequests(model interface{}) http.HandlerFunc {
 					return
 				}
 				fmt.Println(string(requestBodyBytes))
-				var result []struct {
-					Path string  `json:"path"`
-					TF   float32 `json:"tf"`
-				}
+				var result []resultsMap
 
 				count := 0
 				for path, table := range v.TFPD {
@@ -134,10 +136,7 @@ func handleRequests(model interface{}) http.HandlerFunc {
 						//stats := mapToSortedSlice(tf)
 						// fmt.Println(token, " => ", rank)
 					}
-					result = append(result, struct {
-						Path string  `json:"path"`
-						TF   float32 `json:"tf"`
-					}{path, rank})
+					result = append(result, resultsMap{path, rank})
 					sort.Slice(result, func(i, j int) bool {
 						return result[i].TF > result[j].TF
 					})
@@ -147,33 +146,28 @@ func handleRequests(model interface{}) http.HandlerFunc {
 					fmt.Println(result[i].Path, " => ", result[i].TF)
 				}
 
-				// for i, v := range v.UrlFiles {
-				// 	fmt.Println(i, v)
-				// }
+				for i, v := range v.UrlFiles {
+					fmt.Println(i, v)
+				}
 
-				if result[0].TF > 0 {
-					if v.UrlFiles != nil {
-						for i := range result {
-							paths := strings.Split(result[i].Path, "/")
-							result[i].Path = v.UrlFiles[paths[len(paths)-1]]
-						}
+				if result[0].TF > 0 && v.UrlFiles != nil {
+					for i := range result {
+						paths := strings.Split(result[i].Path, "/")
+						fmt.Println(paths)
+						result[i].Path = v.UrlFiles[paths[len(paths)-1]]
 
 					}
 
 				}
-				jsonBytes, err := json.Marshal(result[:20])
 
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
-
+				var result2 []resultsMap
 				if result[0].TF == 0 {
 					fmt.Println("No results found, trying again with tfidf")
-					var result2 []struct {
-						Path string  `json:"path"`
-						TF   float32 `json:"tf"`
-					}
+
 					for path, table := range v.TFPD {
 
 						querylexer := lexer.NewLexer(string(requestBodyBytes))
@@ -183,24 +177,15 @@ func handleRequests(model interface{}) http.HandlerFunc {
 							if err != nil {
 								break
 							}
-							//fmt.Println(Util.ComputeTF(token, table.TermCount, table.Terms), Util.ComputeIDF(token, table.TermCount, model.DF))
 							rank += tfidf.ComputeTF(token, table.TermCount, tfidf.TermFreq(table.Terms)) * tfidf.ComputeIDF(token, len(v.TFPD), v.DF)
 							count += 1
-							//stats := mapToSortedSlice(tf)
-							//fmt.Println(token, " => ", rank)
 						}
-						result2 = append(result, struct {
-							Path string  `json:"path"`
-							TF   float32 `json:"tf"`
-						}{path, rank})
+						result2 = append(result2, resultsMap{path, rank})
 						sort.Slice(result2, func(i, j int) bool {
 							return result2[i].TF > result2[j].TF
 						})
 
 					}
-					// for i := 0; i < 20; i++ {
-					// 	fmt.Println(result2[i].Path, " => ", result2[i].TF)
-					// }
 
 					if v.UrlFiles != nil {
 						for i := range result {
@@ -208,32 +193,43 @@ func handleRequests(model interface{}) http.HandlerFunc {
 							result2[i].Path = v.UrlFiles[paths[len(paths)-1]]
 						}
 					}
-					jsonBytes, err = json.Marshal(result2[:20])
-					if err != nil {
-						fmt.Println(err)
-						return
-					}
+
 					for i := 0; i < 20; i++ {
 						fmt.Println(result2[i].Path, " => ", result2[i].TF)
 					}
 
 				}
-
-				// for i, v := range result {
-				// 	fmt.Println(i, v.Path, " => ", v.TF)
-				// }
-
-				if err != nil {
-					fmt.Println(err)
-					return
+				var data []resultsMap
+				if result2 != nil {
+					if result2[0].TF == 0 {
+						data = []resultsMap{{
+							Path: "No results found",
+							TF:   0,
+						}}
+					} else {
+						data = result2[:20]
+					}
+				} else {
+					data = result[:20]
 				}
+
+				elapsed := time.Since(start)
+				response := &Response{
+					Message: fmt.Sprintf("Queried %d documents in %d Ms", count, elapsed.Milliseconds()),
+					Data:    data,
+				}
+				jsonBytes, err := json.Marshal(response)
+				if err != nil {
+					fmt.Println("Unable to marshal json: ", err)
+				}
+
 				w.Header().Set("Content-Type", "application/json")
 				_, err = w.Write(jsonBytes)
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
-				elapsed := time.Since(start)
+
 				fmt.Println("------------------")
 				fmt.Println("Queried ", count, " documents in ", elapsed.Milliseconds(), " ms")
 				fmt.Println("------------------")

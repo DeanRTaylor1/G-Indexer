@@ -155,33 +155,39 @@ func CrawlDomain(domain string) {
 		select {
 		case newURL := <-foundUrls:
 			fmt.Println("Received new URL: ", newURL, "")
+			visitedMutex.Lock()
+
+			// If the URL has already been visited, skip it
+			if visited[newURL] {
+				fmt.Println("URL already visited: ", newURL)
+				visitedMutex.Unlock()
+				continue
+			}
+
+			// Mark the URL as visited
+			visited[newURL] = true
+			visitedMutex.Unlock()
+
 			// Check if the new URL has the same domain
 			if extractDomain(newURL) != extractDomain(domain) {
 				fmt.Println("URL is not in the same domain: ", newURL)
 				continue
 			}
 
-			visitedMutex.Lock()
-			if !visited[newURL] {
-				fmt.Println("URL is new, adding to the queue: ", newURL)
-				visited[newURL] = true
-				urlPath, err := url.Parse(newURL)
-				if err != nil {
-					fmt.Println(err)
-				}
-				fileName := strings.ReplaceAll(urlPath.Path, "/", "_")
-				urlsMutex.Lock()
-				urlFiles[fileName] = newURL
-				urlsMutex.Unlock()
-				wg.Add(1)
-				go func(urlToCrawl string) {
-					defer wg.Done()
-					crawlPage(urlToCrawl, foundUrls, dirName, errChan)
-				}(newURL)
-			} else {
-				fmt.Println("URL already visited: ", newURL)
+			fmt.Println("URL is new, adding to the queue: ", newURL)
+			urlPath, err := url.Parse(newURL)
+			if err != nil {
+				fmt.Println(err)
 			}
-			visitedMutex.Unlock()
+			fileName := strings.ReplaceAll(urlPath.Path, "/", "_")
+			urlsMutex.Lock()
+			urlFiles[fileName] = newURL
+			urlsMutex.Unlock()
+			wg.Add(1)
+			go func(urlToCrawl string) {
+				defer wg.Done()
+				crawlPage(urlToCrawl, foundUrls, dirName, errChan)
+			}(newURL)
 
 		case err := <-errChan:
 			fmt.Printf("Error: %v\n", err)
