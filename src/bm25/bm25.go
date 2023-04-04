@@ -16,7 +16,6 @@ import (
 
 	"github.com/deanrtaylor1/gosearch/src/lexer"
 	"github.com/deanrtaylor1/gosearch/src/util"
-	webcrawler "github.com/deanrtaylor1/gosearch/src/web-crawler"
 )
 
 const (
@@ -97,11 +96,11 @@ func LoadCachedGobToModel(dirPath string, model *Model) {
 				log.Println(err)
 				return
 			}
-			defer gzipReader.Close()
 
 			model.ModelLock.Lock()
 
 			decoder := gob.NewDecoder(gzipReader)
+			gzipReader.Close()
 			var decompressedURLFiles map[string]string
 			if err := decoder.Decode(&decompressedURLFiles); err != nil {
 				log.Println(err)
@@ -129,10 +128,10 @@ func LoadCachedGobToModel(dirPath string, model *Model) {
 				log.Println(err)
 				return
 			}
-			defer gzipReader.Close()
 
 			decoder := gob.NewDecoder(gzipReader)
-			var decompressedDataMap map[string]webcrawler.IndexedData
+			gzipReader.Close()
+			var decompressedDataMap map[string]util.IndexedData
 			if err := decoder.Decode(&decompressedDataMap); err != nil {
 				log.Println(err)
 				return
@@ -174,14 +173,6 @@ func LoadCachedGobToModel(dirPath string, model *Model) {
 				model.ModelLock.Unlock()
 
 				model.ModelLock.Lock()
-				if _, exists := model.UrlFiles[filePath]; !exists {
-					fileUrl, err := getFileUrl(filePath)
-					if err != nil {
-						log.Println(err)
-					} else {
-						model.UrlFiles[filePath] = fileUrl
-					}
-				}
 
 				model.TFPD[filePath] = ConvertToDocData(tf)
 				model.ModelLock.Unlock()
@@ -244,7 +235,7 @@ func AddFolderToModel(dirPath string, model *Model) {
 			defer f.Close()
 			decoder := json.NewDecoder(f)
 
-			var dataMap map[string]webcrawler.IndexedData
+			var dataMap map[string]util.IndexedData
 			err = decoder.Decode(&dataMap)
 			if err != nil {
 				fmt.Println(err)

@@ -10,6 +10,11 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 )
 
+type IndexedData struct {
+	URL     string
+	Content string // Or any other data structure used for storing indexed content
+}
+
 func JSONToFile(j []byte, filename string) {
 	fmt.Println("j length:", len(j)) // debugging line
 	f, err := os.Create(filename)

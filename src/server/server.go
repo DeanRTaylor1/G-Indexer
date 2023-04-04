@@ -157,7 +157,7 @@ func handleRequests(model *bm25.Model) http.HandlerFunc {
 				}
 
 			}
-			fmt.Println(result2)
+			//fmt.Println(result2)
 
 			var data []resultsMap
 			if result2 != nil {
