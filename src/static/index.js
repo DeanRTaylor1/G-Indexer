@@ -88,8 +88,7 @@ async function search(event, query) {
 
     let description = document.createElement("div");
     description.classList.add("result-description");
-    description.innerText =
-      "This is a short description for the result. Replace this with the actual description from your API data.";
+    description.innerText = "";
 
     newDiv.appendChild(title);
     newDiv.appendChild(url);
@@ -120,12 +119,14 @@ const checkProgress = async () => {
         hideLoadingCircle();
         showCrawlSection();
         clearInterval(interval);
-      } else if (
-        apiResult.is_complete === true ||
-        apiResult.message === "In Progress"
-      ) {
+      } else if (apiResult.message === "In Progress") {
         hideLoadingCircle();
+        hideCrawlSection();
         showQuerySection();
+        clearInterval(interval);
+      } else if (apiResult.message === "Not Started") {
+        hideLoadingCircle();
+        showCrawlSection();
         clearInterval(interval);
       }
     }, 300);
@@ -151,7 +152,7 @@ const startCrawl = async (event, query) => {
 
     const timer = setTimeout(() => {
       checkProgress();
-    }, 750);
+    }, 2000);
   } catch (error) {
     console.log(error);
     clearTimeout(timer);

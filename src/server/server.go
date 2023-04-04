@@ -44,6 +44,43 @@ type ProgressResponseData struct {
 	Value interface{} `json:"data_value"`
 }
 
+func getTopTerms(tf bm25.TermFreq, n int) []string {
+	type kv struct {
+		Key   string
+		Value int
+	}
+
+	var freqs []kv
+	for k, v := range tf {
+		freqs = append(freqs, kv{k, v})
+	}
+
+	sort.Slice(freqs, func(i, j int) bool {
+		return freqs[i].Value > freqs[j].Value
+	})
+
+	var topTerms []string
+	for i := 0; i < n && i < len(freqs); i++ {
+		topTerms = append(topTerms, freqs[i].Key)
+	}
+
+	return topTerms
+}
+
+func isGreaterThanZero(value float32) bool {
+	return value > 0
+}
+
+func filterResults(results []resultsMap, filter func(float32) bool) []resultsMap {
+	var filteredResults []resultsMap
+	for _, result := range results {
+		if filter(result.TF) {
+			filteredResults = append(filteredResults, result)
+		}
+	}
+	return filteredResults
+}
+
 func handleApiCrawl(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 	requestBodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -219,7 +256,7 @@ func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) 
 				rank += tfidf.ComputeTF(token, table.TermCount, tfidf.TermFreq(table.Terms)) * tfidf.ComputeIDF(token, len(model.TFPD), model.DF)
 				count += 1
 			}
-			result2 = append(result, resultsMap{model.UrlFiles[path], path, rank})
+			result2 = append(result2, resultsMap{model.UrlFiles[path], path, rank})
 			sort.Slice(result2, func(i, j int) bool {
 				return result2[i].TF > result2[j].TF
 			})
@@ -241,10 +278,10 @@ func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) 
 				TF:   0,
 			}}
 		} else {
-			data = result2[:20]
+			data = filterResults(result2[:20], isGreaterThanZero)
 		}
 	} else {
-		data = result[:20]
+		data = filterResults(result[:20], isGreaterThanZero)
 	}
 
 	elapsed := time.Since(start)
