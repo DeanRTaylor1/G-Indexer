@@ -38,12 +38,13 @@ type Model struct {
 	//DF is the Document Frequency of a term
 	DF DocFreq
 	//DA is the average document length
-	DA        float32
-	TermCount int
-	DocCount  int
-	DirLength float32
-	UrlFiles  map[string]string
-	ModelLock *sync.Mutex
+	DA         float32
+	TermCount  int
+	DocCount   int
+	DirLength  float32
+	UrlFiles   map[string]string
+	ModelLock  *sync.Mutex
+	IsComplete bool
 }
 
 func NewEmptyModel() *Model {

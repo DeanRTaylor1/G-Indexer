@@ -516,6 +516,9 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 	// fmt.Println("parsing links", links)
 	for _, link := range links {
 		fmt.Println(link)
+		if shouldIgnoreLink(link) {
+			continue
+		}
 		// check if the link is a relative link
 		parsedLink, err := url.Parse(link)
 		if err != nil {
@@ -675,6 +678,9 @@ outerLoop:
 			fmt.Printf("Error: %v\n", err)
 
 		case <-done:
+			model.ModelLock.Lock()
+			model.IsComplete = true
+			model.ModelLock.Unlock()
 			cachedDataMutex.Lock()
 			var compressedData bytes.Buffer
 			gzipWriter := gzip.NewWriter(&compressedData)
@@ -741,6 +747,15 @@ func urlToName(urlPath string) string {
 
 	// Join components with " > "
 	return strings.Join(components, " > ")
+}
+
+func shouldIgnoreLink(link string) bool {
+	parsedURL, err := url.Parse(link)
+	if err != nil {
+		return true
+	}
+
+	return parsedURL.Fragment != ""
 }
 
 /*

@@ -45,23 +45,15 @@ func main() {
 		model := bm25.NewEmptyModel()
 		if selectedDirectory == "Start server" {
 			fmt.Println("Starting server with no Index")
-			go func() {
-				webcrawler.CrawlDomainUpdateModel("http://books.toscrape.com", model)
-				model.ModelLock.Lock()
-				model.DA = float32(model.TermCount) / float32(model.DocCount)
-				fmt.Println(model.TermCount, model.DocCount, model.DA)
-
-				model.ModelLock.Unlock()
-			}()
 
 		} else {
 			fmt.Println("Starting server and indexing directory: ", selectedDirectory)
+			model.Name = selectedDirectory
 			go func() {
 				bm25.LoadCachedGobToModel("./"+selectedDirectory, model)
 				model.ModelLock.Lock()
 				model.DA = float32(model.TermCount) / float32(model.DocCount)
-				fmt.Println(model.TermCount, model.DocCount, model.DA)
-
+				model.IsComplete = true
 				model.ModelLock.Unlock()
 			}()
 

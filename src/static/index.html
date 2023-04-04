@@ -6,30 +6,88 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GoSearch</title>
     <script src="index.js" defer></script>
+    <link rel="stylesheet" href="styles.css" />
   </head>
-  <body style="font-family: Arial, Helvetica, sans-serif">
-    <div
-      id="query"
-      style="
-        display: flex;
-        flex-direction: row;
-        gap: 8px;
-        justify-content: start;
-        align-items: center;
-      "
-    >
-      <h1>Query:</h1>
-
-      <form id="queryForm">
-        <input id="queryInput" type="text" />
-      </form>
-      <p id="resultSpeedBox"></p>
+  <body
+    style="
+      font-family: Arial, Helvetica, sans-serif;
+      color: #121828;
+      background: #ffffff;
+    "
+  >
+    <div id="header" style="border-bottom: 1px solid rgba(226, 227, 231, 0.7)">
+      <h1
+        style="
+          font-size: x-large;
+          display: flex;
+          flex-direction: row;
+          gap: 8px;
+          justify-content: start;
+          align-items: center;
+          padding: 4px;
+        "
+      >
+        Search Any Site
+      </h1>
     </div>
-
-    <h1>Results</h1>
-    <div
-      id="results"
-      style="display: flex; flex-direction: column; gap: 2"
-    ></div>
+    <div id="main">
+      <div
+        id="query"
+        style="
+          display: flex;
+          flex-direction: row;
+          gap: 8px;
+          justify-content: start;
+          align-items: center;
+        "
+      >
+        <div
+          id="crawlSection"
+          class="hidden"
+          style="
+            flex-direction: row;
+            gap: 8px;
+            justify-content: start;
+            align-items: center;
+          "
+        >
+          <h3 style="font-size: x-large">Crawl:</h3>
+          <form id="crawlForm">
+            <input id="crawlInput" type="text" />
+          </form>
+        </div>
+        <div
+          id="querySection"
+          class="hidden"
+          style="
+            flex-direction: row;
+            gap: 8px;
+            justify-content: start;
+            align-items: center;
+          "
+        >
+          <h3 style="font-size: x-large">Query:</h3>
+          <form id="queryForm">
+            <input id="queryInput" type="text" />
+          </form>
+        </div>
+        <p id="progressBox"></p>
+      </div>
+      <div
+        style="
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        "
+      >
+        <div id="loading-circle" class="hidden"></div>
+      </div>
+      <h1 id="resultsTitle" class="hidden">Results:</h1>
+      <div
+        id="results"
+        style="display: flex; flex-direction: column; gap: 2"
+      ></div>
+    </div>
   </body>
 </html>
