@@ -1,11 +1,15 @@
 package webcrawler
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"time"
 
 	"os"
 	"strings"
@@ -13,6 +17,8 @@ import (
 
 	"github.com/deanrtaylor1/gosearch/src/lexer"
 	"github.com/deanrtaylor1/gosearch/src/util"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 func closeFile(f *os.File, errChan chan<- error) {
@@ -331,14 +337,21 @@ outerLoop:
 				fmt.Println("Reached max number of URLs to crawl: ", maxURLsToCrawl)
 				visitedMutex.Unlock()
 				urlsMutex.Lock()
-				util.MapToJSON(urlFiles, true, dirName+"/urls.json")
-				urlsMutex.Unlock()
-				cachedDataMutex.Lock()
-				mi := make(map[string]interface{}, len(cachedData))
-				for k, v := range cachedData {
-					mi[k] = v
+				var compressedData bytes.Buffer
+				gzipWriter := gzip.NewWriter(&compressedData)
+
+				encoder := gob.NewEncoder(gzipWriter)
+				if err := encoder.Encode(cachedData); err != nil {
+					log.Fatalf("Error encoding indexed data: %v", err)
 				}
-				util.MapToJSONGeneric(mi, true, dirName+"/cachedData.json")
+
+				if err := gzipWriter.Close(); err != nil {
+					log.Fatalf("Error closing gzip writer: %v", err)
+				}
+				filename := fmt.Sprintf("indexed_data_%s.gz", time.Now().Format("20060102_150405"))
+				if err := os.WriteFile(dirName+"./"+filename, compressedData.Bytes(), 0644); err != nil {
+					log.Fatalf("Error writing compressed data to disk: %v", err)
+				}
 				cachedDataMutex.Unlock()
 				break outerLoop
 			}
@@ -364,9 +377,10 @@ outerLoop:
 			if err != nil {
 				fmt.Println(err)
 			}
-			fileName := strings.ReplaceAll(urlPath.Path, "/", "_")
+			fileName := urlToName(urlPath.Path)
+			fmt.Println("Filename: ", fileName)
 			urlsMutex.Lock()
-			urlFiles[fileName] = newURL
+			urlFiles[newURL] = fileName
 			urlsMutex.Unlock()
 			wg.Add(1)
 			go func(urlToCrawl string) {
@@ -379,12 +393,39 @@ outerLoop:
 
 		case <-done:
 			cachedDataMutex.Lock()
-			mi := make(map[string]interface{}, len(cachedData))
-			for k, v := range cachedData {
-				mi[k] = v
+			var compressedData bytes.Buffer
+			gzipWriter := gzip.NewWriter(&compressedData)
+
+			encoder := gob.NewEncoder(gzipWriter)
+			if err := encoder.Encode(cachedData); err != nil {
+				log.Fatalf("Error encoding indexed data: %v", err)
 			}
-			util.MapToJSONGeneric(mi, true, dirName+"/cachedData.json")
+
+			if err := gzipWriter.Close(); err != nil {
+				log.Fatalf("Error closing gzip writer: %v", err)
+			}
+			filename := "indexed-data.gz"
+			if err := os.WriteFile(dirName+"./"+filename, compressedData.Bytes(), 0644); err != nil {
+				log.Fatalf("Error writing compressed data to disk: %v", err)
+			}
 			cachedDataMutex.Unlock()
+			urlsMutex.Lock()
+			var compressedData2 bytes.Buffer
+			gzipWriter2 := gzip.NewWriter(&compressedData2)
+
+			encoder2 := gob.NewEncoder(gzipWriter2)
+			if err := encoder2.Encode(urlFiles); err != nil {
+				log.Fatalf("Error encoding indexed data: %v", err)
+			}
+
+			if err := gzipWriter2.Close(); err != nil {
+				log.Fatalf("Error closing gzip writer: %v", err)
+			}
+			filename2 := "url-files.gz"
+			if err := os.WriteFile(dirName+"./"+filename2, compressedData2.Bytes(), 0644); err != nil {
+				log.Fatalf("Error writing compressed data to disk: %v", err)
+			}
+			urlsMutex.Unlock()
 			return
 		}
 
@@ -392,19 +433,30 @@ outerLoop:
 
 }
 
+func urlToName(urlPath string) string {
+	// Remove common file extensions
+	urlPath = strings.TrimSuffix(urlPath, ".html")
+	urlPath = strings.TrimSuffix(urlPath, ".php")
+	urlPath = strings.TrimSuffix(urlPath, ".asp")
+
+	// Split the path into components
+	components := strings.Split(urlPath, "/")
+	// Create a Caser for title casing in English without lowercasing the entire string first
+	caser := cases.Title(language.English, cases.NoLower)
+
+	// Process each component
+	for i, component := range components {
+		// Replace hyphens and underscores with spaces
+		component = strings.ReplaceAll(component, "-", " ")
+		component = strings.ReplaceAll(component, "_", " ")
+
+		// Convert to title case
+		components[i] = caser.String(component)
+	}
+
+	// Join components with " > "
+	return strings.Join(components, " > ")
+}
+
 /*
-	var compressedData bytes.Buffer
-	gzipWriter := gzip.NewWriter(&compressedData)
-
-	encoder := gob.NewEncoder(gzipWriter)
-	if err := encoder.Encode(cachedData); err != nil {
-		log.Fatalf("Error encoding indexed data: %v", err)
-	}
-
-	if err := gzipWriter.Close(); err != nil {
-		log.Fatalf("Error closing gzip writer: %v", err)
-	}
-	filename := fmt.Sprintf("indexed_data_%s.gz", time.Now().Format("20060102_150405"))
-	if err := os.WriteFile(dirName+"./"+filename, compressedData.Bytes(), 0644); err != nil {
-		log.Fatalf("Error writing compressed data to disk: %v", err)
-	}*/
+ */

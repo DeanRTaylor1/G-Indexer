@@ -49,7 +49,7 @@ func main() {
 		} else {
 			fmt.Println("Starting server and indexing directory: ", selectedDirectory)
 			go func() {
-				bm25.AddFolderToModel("./"+selectedDirectory, model)
+				bm25.LoadCachedGobToModel("./"+selectedDirectory, model)
 				model.ModelLock.Lock()
 				model.DA = float32(model.TermCount) / float32(model.DocCount)
 				fmt.Println(model.TermCount, model.DocCount, model.DA)

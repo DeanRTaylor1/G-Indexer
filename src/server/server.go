@@ -12,12 +12,12 @@ import (
 	"github.com/deanrtaylor1/gosearch/src/bm25"
 	"github.com/deanrtaylor1/gosearch/src/lexer"
 	"github.com/deanrtaylor1/gosearch/src/tfidf"
-	"github.com/deanrtaylor1/gosearch/src/util"
 
 	"github.com/tebeka/snowball"
 )
 
 type resultsMap struct {
+	Name string  `json:"name"`
 	Path string  `json:"path"`
 	TF   float32 `json:"tf"`
 }
@@ -45,7 +45,7 @@ func handleRequests(model *bm25.Model) http.HandlerFunc {
 			model.ModelLock.Lock()
 			defer model.ModelLock.Unlock()
 
-			data := float32(model.DocCount) / float32(util.GetDirLength(model.Name))
+			data := float32(model.DocCount) / model.DirLength
 			fmt.Println(data)
 			response := &struct {
 				Message string  `json:"Message"`
@@ -96,13 +96,13 @@ func handleRequests(model *bm25.Model) http.HandlerFunc {
 						break
 					}
 
-					fmt.Println(bm25.ComputeTF(token, table.TermCount, table.Terms, model.DA), bm25.ComputeIDF(token, len(model.TFPD), model.DF), model.DA)
+					//fmt.Println(bm25.ComputeTF(token, table.TermCount, table.Terms, model.DA), bm25.ComputeIDF(token, len(model.TFPD), model.DF), model.DA)
 					rank += bm25.ComputeTF(token, table.TermCount, table.Terms, model.DA) * bm25.ComputeIDF(token, len(model.TFPD), model.DF)
 					count += 1
 					//stats := mapToSortedSlice(tf)
 					// fmt.Println(token, " => ", rank)
 				}
-				result = append(result, resultsMap{path, rank})
+				result = append(result, resultsMap{model.UrlFiles[path], path, rank})
 				sort.Slice(result, func(i, j int) bool {
 					return result[i].TF > result[j].TF
 				})
@@ -119,9 +119,9 @@ func handleRequests(model *bm25.Model) http.HandlerFunc {
 
 			// if result[0].TF > 0 && model.UrlFiles != nil {
 			// 	for i := range result {
-			// 		paths := strings.Split(result[i].Path, "/")
+			// 		//paths := strings.Split(result[i].Path, "/")
 			// 		//fmt.Println(paths)
-			// 		result[i].Path = model.UrlFiles[paths[len(paths)-1]]
+			// 		result[i].Path = model.UrlFiles[result[i].Path]
 
 			// 	}
 
@@ -145,19 +145,12 @@ func handleRequests(model *bm25.Model) http.HandlerFunc {
 						rank += tfidf.ComputeTF(token, table.TermCount, tfidf.TermFreq(table.Terms)) * tfidf.ComputeIDF(token, len(model.TFPD), model.DF)
 						count += 1
 					}
-					result2 = append(result2, resultsMap{path, rank})
+					result2 = append(result, resultsMap{model.UrlFiles[path], path, rank})
 					sort.Slice(result2, func(i, j int) bool {
 						return result2[i].TF > result2[j].TF
 					})
 
 				}
-
-				// if model.UrlFiles != nil {
-				// 	for i := range result {
-				// 		paths := strings.Split(result2[i].Path, "/")
-				// 		result2[i].Path = model.UrlFiles[paths[len(paths)-1]]
-				// 	}
-				// }
 
 				for i := 0; i < 20; i++ {
 					fmt.Println(result2[i].Path, " => ", result2[i].TF)

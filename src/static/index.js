@@ -23,7 +23,7 @@ async function search(event, query) {
     let newDiv = document.createElement("div");
     let url = document.createElement("a");
     url.href = result.path;
-    url.innerText = result.path;
+    url.innerText = result.name;
     url.target = "_blank";
     // let newContent = document.createTextNode(JSON.stringify(result.path));
     newDiv.appendChild(url);
