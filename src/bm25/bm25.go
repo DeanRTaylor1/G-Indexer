@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"net/url"
 	"os"
 	"path/filepath"
 	"sync"
@@ -69,21 +68,21 @@ func NewEmptyModel() *Model {
 	}
 }
 
-func getFileUrl(filePath string) (string, error) {
-	absolutePath, err := filepath.Abs(filePath)
-	if err != nil {
-		log.Println("unable to get absolute path", err)
-		return "", err
-	}
+// func getFileUrl(filePath string) (string, error) {
+// 	absolutePath, err := filepath.Abs(filePath)
+// 	if err != nil {
+// 		log.Println("unable to get absolute path", err)
+// 		return "", err
+// 	}
 
-	fileUrl := &url.URL{
-		Scheme: "file",
-		Path:   filepath.ToSlash(absolutePath),
-	}
+// 	fileUrl := &url.URL{
+// 		Scheme: "file",
+// 		Path:   filepath.ToSlash(absolutePath),
+// 	}
 
-	return fileUrl.String(), nil
+// 	return fileUrl.String(), nil
 
-}
+// }
 
 func readUrlFiles(dirPath string, fileName string, model *Model) {
 	compressedData, err := os.ReadFile(dirPath + "/" + fileName)

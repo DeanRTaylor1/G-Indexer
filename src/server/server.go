@@ -51,29 +51,6 @@ type ProgressResponseData struct {
 	Value interface{} `json:"data_value"`
 }
 
-func getTopTerms(tf bm25.TermFreq, n int) []string {
-	type kv struct {
-		Key   string
-		Value int
-	}
-
-	var freqs []kv
-	for k, v := range tf {
-		freqs = append(freqs, kv{k, v})
-	}
-
-	sort.Slice(freqs, func(i, j int) bool {
-		return freqs[i].Value > freqs[j].Value
-	})
-
-	var topTerms []string
-	for i := 0; i < n && i < len(freqs); i++ {
-		topTerms = append(topTerms, freqs[i].Key)
-	}
-
-	return topTerms
-}
-
 func isGreaterThanZero(value float32) bool {
 	return value > 0
 }
@@ -402,6 +379,8 @@ func handleRequests(model *bm25.Model) http.HandlerFunc {
 		switch {
 		case r.Method == "GET" && r.URL.Path == "/":
 			http.Redirect(w, r, "/static/index.html", http.StatusSeeOther)
+		case r.Method == "GET" && r.URL.Path == "/favicon.ico":
+			http.Redirect(w, r, "/static/favicon.ico", http.StatusSeeOther)
 		case r.Method == "GET" && r.URL.Path == "/static/":
 			http.ServeFile(w, r, "src/static/index.html")
 		case r.Method == "GET" && r.URL.Path == "/static/styles.css":

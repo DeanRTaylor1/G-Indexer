@@ -346,8 +346,17 @@ func urlToName(urlPath string) string {
 		components[i] = caser.String(component)
 	}
 
-	// Join components with " > "
-	return strings.Join(components, " > ")
+	// If the last component is empty, remove it
+	if len(components) > 0 && components[len(components)-1] == "" {
+		components = components[:len(components)-1]
+	}
+
+	// Skip the first component and join the remaining components with " > "
+	if len(components) > 1 {
+		return strings.Join(components[1:], " > ")
+	}
+
+	return ""
 }
 
 var ignoredExtensions = map[string]bool{

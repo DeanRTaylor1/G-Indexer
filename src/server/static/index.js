@@ -56,7 +56,7 @@ async function search(event, query) {
   });
 
   const apiResult = await response.json();
-
+  console.log(apiResult);
   showResults();
   for (let result of apiResult.Data) {
     let newDiv = document.createElement("div");
@@ -64,18 +64,10 @@ async function search(event, query) {
 
     let title = document.createElement("a");
     title.href = result.path;
-    let pathParts = result.name.split(" > ");
 
-    if (pathParts[pathParts.length - 1].trim() === "") {
-      pathParts.pop();
-    }
-
-    let formattedPath = `${pathParts.slice(1).join(" > ")}`;
-    formattedPath[-1] === "";
     title.classList.add("result-title");
-    title.innerText = `${
-      result.name.length === 1 ? result.path : formattedPath
-    }`;
+    console.log(result.name);
+    title.innerText = `${result.name.length === 1 ? result.path : result.name}`;
     title.target = "_blank";
 
     let url = document.createElement("div");
