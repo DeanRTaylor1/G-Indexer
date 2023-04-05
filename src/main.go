@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os/exec"
+	"runtime"
 	"strings"
 
 	"os"
@@ -12,13 +14,34 @@ import (
 )
 
 func help() {
-	fmt.Println("Usage: PROGRAM [SUBCOMMAND] [OPTIONS]")
+	fmt.Println("GoSearch - A simple search engine written in Go")
+	fmt.Println("Author: Dean Taylor")
+	fmt.Println("Version: 0.1")
+	fmt.Println("License: MIT")
+	fmt.Println("default start: gosearch.exe launches search engine and crawler on localhost:8080")
+
+	fmt.Println("CLI Usage: PROGRAM [SUBCOMMAND] [OPTIONS]")
 	fmt.Println("----------------------------------")
-	fmt.Println("    index:                           index -a <algorithm> <path to folder>")
-	fmt.Println("                                     Available algorithms: tfidf, bm25")
-	fmt.Println("    search:                          search <path to folder> <query>")
+	fmt.Println("Subcommands:")
+	fmt.Println("    cli:                            start server with cli interface")
 	fmt.Println("    help:                            list all commands")
-	fmt.Println("    serve:                           start local http server")
+
+}
+
+func openBrowser() {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", "http://localhost:8080")
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", "http://localhost:8080")
+	default: // assume Linux or similar
+		cmd = exec.Command("xdg-open", "http://localhost:8080")
+	}
+	err := cmd.Start()
+	if err != nil {
+		fmt.Println("Failed to open web browser:", err)
+	}
 }
 
 func main() {
@@ -28,13 +51,16 @@ func main() {
 	}
 	args := os.Args[1:]
 	if len(args) < 1 {
-		help()
-		os.Exit(1)
+		fmt.Println(util.TerminalCyan + "Initializing server with empty model" + util.TerminalReset)
+		model := bm25.NewEmptyModel()
+		openBrowser()
+		server.Serve(model)
 	}
 	program := args[0]
 
 	switch program {
-	case "start":
+	case "cli":
+
 		selectedDirectory := strings.Replace(util.SelectDirectory(), "○ ", "", -1)
 		fmt.Printf("Selected directory: %s\n", selectedDirectory)
 
@@ -56,7 +82,7 @@ func main() {
 		}
 		server.Serve(model)
 
-	case "help":
+	case "-help":
 		help()
 
 	default:

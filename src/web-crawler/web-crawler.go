@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"path/filepath"
 
 	"os"
 	"strings"
@@ -20,13 +21,6 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
-
-func closeFile(f *os.File, errChan chan<- error) {
-	err := f.Close()
-	if err != nil {
-		errChan <- fmt.Errorf("error closing file: %w", err)
-	}
-}
 
 // Add a helper function to extract the domain name from a URL
 func extractDomain(rawURL string) string {
@@ -356,11 +350,32 @@ func urlToName(urlPath string) string {
 	return strings.Join(components, " > ")
 }
 
+var ignoredExtensions = map[string]bool{
+	".zip": true, ".tar": true, ".gz": true, ".rar": true, ".7z": true,
+	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".bmp": true, ".svg": true, ".webp": true,
+	".mp3": true, ".wav": true, ".ogg": true, ".flac": true, ".m4a": true,
+	".mp4": true, ".avi": true, ".mkv": true, ".flv": true, ".mov": true, ".wmv": true, ".webm": true,
+	".pdf": true, ".doc": true, ".docx": true, ".xls": true, ".xlsx": true, ".ppt": true, ".pptx": true, ".pages": true, ".key": true, ".numbers": true,
+	".exe": true, ".msi": true, ".bin": true, ".dmg": true, ".apk": true, ".deb": true, ".rpm": true,
+	".ttf": true, ".otf": true, ".woff": true, ".woff2": true,
+}
+
 func shouldIgnoreLink(link string) bool {
 	parsedURL, err := url.Parse(link)
 	if err != nil {
 		return true
 	}
 
-	return parsedURL.Fragment != ""
+	// Check if the URL contains a fragment
+	if parsedURL.Fragment != "" {
+		return true
+	}
+
+	// Check if the URL has a file extension in the ignoredExtensions map
+	fileExtension := filepath.Ext(parsedURL.Path)
+	if _, ok := ignoredExtensions[fileExtension]; ok {
+		return true
+	}
+
+	return false
 }

@@ -118,8 +118,6 @@ func handleApiCrawl(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 		model.ModelLock.Lock()
 		model.Name = urlToCrawl
 		model.DA = float32(model.TermCount) / float32(model.DocCount)
-		fmt.Println(model.TermCount, model.DocCount, model.DA)
-
 		model.ModelLock.Unlock()
 	}()
 
@@ -404,6 +402,8 @@ func handleRequests(model *bm25.Model) http.HandlerFunc {
 			http.ServeFile(w, r, "src/static/index.html")
 		case r.Method == "GET" && r.URL.Path == "/styles.css":
 			http.ServeFile(w, r, "src/static/styles.css")
+		case r.Method == "GET" && r.URL.Path == "/favicon.ico":
+			http.ServeFile(w, r, "src/static/favicon.ico")
 		case r.Method == "GET" && r.URL.Path == "/index.js":
 			http.ServeFile(w, r, "src/static/index.js")
 		case r.Method == "GET" && r.URL.Path == "/api/indexes":

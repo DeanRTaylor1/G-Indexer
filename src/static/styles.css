@@ -1,5 +1,12 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap");
+
 .hidden {
   display: none;
+}
+body {
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  color: #121828;
+  background: #ffffff;
 }
 
 .no-style-link {
@@ -36,6 +43,8 @@
 
 .logo {
   font-size: 2rem;
+  font-family: "Manrope", sans-serif;
+  font-weight: 400;
   color: #4a4a4a;
   display: flex;
   flex-direction: row;
@@ -44,7 +53,7 @@
   align-items: center;
   padding: 4px;
   letter-spacing: 0.2rem;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  drop-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .resultsContainer {
@@ -73,6 +82,7 @@
   justify-content: center;
   align-items: center;
   font-size: 1rem;
+  border-bottom: 1px solid rgba(226, 227, 231, 0.7);
 }
 
 .formSection {
