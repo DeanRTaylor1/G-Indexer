@@ -559,6 +559,9 @@ func CrawlDomainUpdateModel(domain string, model *bm25.Model) {
 	fmt.Println("creating dir", dirName)
 
 	err = os.MkdirAll(dirName, os.ModePerm)
+	model.ModelLock.Lock()
+	model.Name = dirName
+	model.ModelLock.Unlock()
 
 	if err != nil {
 		fmt.Println(err)

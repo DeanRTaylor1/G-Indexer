@@ -6,6 +6,11 @@ const results = document.getElementById("results");
 const progressBox = document.getElementById("progressBox");
 const crawlSection = document.getElementById("crawlSection");
 const querySection = document.getElementById("querySection");
+const indexSelect = document.getElementById("indexSelect");
+const statusBox = document.getElementById("statusBox");
+const indexName = document.getElementById("indexName");
+
+indexSelect.addEventListener("change", (event) => startIndex(event));
 
 queryForm.addEventListener("submit", (event) =>
   search(event, queryInput.value)
@@ -24,25 +29,17 @@ function hideLoadingCircle() {
   loadingCircle.classList.add("hidden");
 }
 
-function showCrawlSection() {
-  crawlSection.classList.remove("hidden");
-  crawlSection.style.display = "flex";
-}
-
-function hideCrawlSection() {
-  crawlSection.classList.add("hidden");
-  crawlSection.style.display = "hidden";
-}
-
 function showQuerySection() {
   querySection.classList.remove("hidden");
   querySection.style.display = "flex";
 }
 
-function showResultsTitle() {
+function showResults() {
   const resultsTitle = document.getElementById("resultsTitle");
+
   resultsTitle.classList.remove("hidden");
   resultsTitle.style.display = "flex";
+  results.style.display = "flex";
 }
 
 async function search(event, query) {
@@ -61,7 +58,7 @@ async function search(event, query) {
 
   const apiResult = await response.json();
 
-  showResultsTitle();
+  showResults();
   for (let result of apiResult.Data) {
     let newDiv = document.createElement("div");
     newDiv.classList.add("result-item");
@@ -110,23 +107,37 @@ const checkProgress = async () => {
         },
       });
       apiResult = await response.json();
-      console.log(apiResult);
+      const stats = `Crawled ${apiResult.dir_length} pages, indexed ${apiResult.doc_count} pages, and found ${apiResult.term_count} terms.`;
+      const link = document.createElement("a");
+      const url = apiResult.index_name;
 
+      // Check if the URL starts with 'http://' or 'https://'
+      if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        link.href = "http://" + url;
+      } else {
+        link.href = url;
+      }
+      link.innerText = apiResult.index_name;
+      link.className = "no-style-link";
+      link.target = "_blank";
+      indexName.innerHTML = "";
+      indexName.appendChild(link);
+      statusBox.innerText = "";
+      statusBox.innerText = stats;
       if (
         apiResult.is_complete === true &&
         apiResult.message === "Not Started"
       ) {
         hideLoadingCircle();
-        showCrawlSection();
         clearInterval(interval);
       } else if (apiResult.message === "In Progress") {
         hideLoadingCircle();
-        hideCrawlSection();
         showQuerySection();
-        clearInterval(interval);
       } else if (apiResult.message === "Not Started") {
         hideLoadingCircle();
-        showCrawlSection();
+        clearInterval(interval);
+      } else if (apiResult.is_complete === true) {
+        hideLoadingCircle();
         clearInterval(interval);
       }
     }, 300);
@@ -137,9 +148,9 @@ const checkProgress = async () => {
 };
 
 const startCrawl = async (event, query) => {
-  hideCrawlSection();
   showLoadingCircle();
   event.preventDefault();
+  let timer;
   try {
     const response = await fetch("/api/crawl", {
       method: "POST",
@@ -150,8 +161,72 @@ const startCrawl = async (event, query) => {
     });
     const apiResult = await response.json();
 
-    const timer = setTimeout(() => {
+    timer = setTimeout(() => {
       checkProgress();
+      getIndexes();
+    }, 2000);
+  } catch (error) {
+    console.log(error);
+    clearTimeout(timer);
+  }
+};
+
+const populateIndexSelect = (indexes) => {
+  const selectElement = document.getElementById("indexSelect");
+  // Clear any existing options
+  selectElement.innerHTML = "";
+  // Add a default option
+  const defaultOption = document.createElement("option");
+  defaultOption.text = "Select an index";
+  selectElement.add(defaultOption);
+
+  // Add options for each index
+  indexes.forEach((index) => {
+    const option = document.createElement("option");
+    option.text = index;
+    option.value = index;
+    selectElement.add(option);
+  });
+};
+
+const getIndexes = async () => {
+  try {
+    const response = await fetch("/api/indexes", {
+      method: "GET",
+      headers: {
+        "Content-Type": "text/plain",
+      },
+    });
+    const apiResult = await response.json();
+    console.log(apiResult);
+    populateIndexSelect(apiResult.Data);
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+const startIndex = async (event) => {
+  event.preventDefault();
+  const index = indexSelect.value;
+  console.log(index);
+  if (index === "Select an index") {
+    return;
+  }
+  let timer;
+  try {
+    const response = await fetch("/api/index", {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain",
+      },
+      body: index,
+    });
+    const apiResult = await response.json();
+    console.log(apiResult);
+    showLoadingCircle();
+    timer = setTimeout(() => {
+      checkProgress();
+      getIndexes();
     }, 2000);
   } catch (error) {
     console.log(error);
@@ -161,6 +236,7 @@ const startCrawl = async (event, query) => {
 
 const startup = () => {
   showLoadingCircle();
+  getIndexes();
   checkProgress();
 };
 

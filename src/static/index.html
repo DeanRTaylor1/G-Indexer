@@ -15,64 +15,38 @@
       background: #ffffff;
     "
   >
-    <div id="header" style="border-bottom: 1px solid rgba(226, 227, 231, 0.7)">
-      <h1
-        style="
-          font-size: x-large;
-          display: flex;
-          flex-direction: row;
-          gap: 8px;
-          justify-content: start;
-          align-items: center;
-          padding: 4px;
-        "
-      >
-        Search Any Site
-      </h1>
+    <div
+      id="header"
+      class="header"
+      style="border-bottom: 1px solid rgba(226, 227, 231, 0.7)"
+    >
+      <h1 class="logo">GoSearch</h1>
+      <h2 class="currentlySearching">
+        Currently Searching:
+        <span id="indexName" class="currentlySearching">None Selected</span>
+      </h2>
     </div>
     <div id="main">
-      <div
-        id="query"
-        style="
-          display: flex;
-          flex-direction: row;
-          gap: 8px;
-          justify-content: start;
-          align-items: center;
-        "
-      >
-        <div
-          id="crawlSection"
-          class="hidden"
-          style="
-            flex-direction: row;
-            gap: 8px;
-            justify-content: start;
-            align-items: center;
-          "
-        >
-          <h3 style="font-size: x-large">Crawl:</h3>
+      <div id="query" class="querySection">
+        <div id="indexSection" class="formSection">
+          <h3>Select Index:</h3>
+          <select id="indexSelect"></select>
+        </div>
+        <div id="crawlSection" class="formSection">
+          <h3>Crawl and Index:</h3>
           <form id="crawlForm">
             <input id="crawlInput" type="text" />
           </form>
         </div>
-        <div
-          id="querySection"
-          class="hidden"
-          style="
-            flex-direction: row;
-            gap: 8px;
-            justify-content: start;
-            align-items: center;
-          "
-        >
-          <h3 style="font-size: x-large">Query:</h3>
+        <div id="querySection" class="formSection">
+          <h3>Query:</h3>
           <form id="queryForm">
             <input id="queryInput" type="text" />
           </form>
         </div>
-        <p id="progressBox"></p>
       </div>
+      <p id="statusBox" class="stats"></p>
+      <p id="progressBox" class="stats"></p>
       <div
         style="
           width: 100%;
@@ -83,11 +57,8 @@
       >
         <div id="loading-circle" class="hidden"></div>
       </div>
-      <h1 id="resultsTitle" class="hidden">Results:</h1>
-      <div
-        id="results"
-        style="display: flex; flex-direction: column; gap: 2"
-      ></div>
+      <h1 id="resultsTitle" style="font-size: 1rem" class="hidden">Results:</h1>
+      <div id="results" class="resultsContainer"></div>
     </div>
   </body>
 </html>

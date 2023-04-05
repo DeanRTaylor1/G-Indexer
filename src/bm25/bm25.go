@@ -47,6 +47,20 @@ type Model struct {
 	IsComplete bool
 }
 
+func ResetModel(model *Model) {
+	model.ModelLock.Lock()
+	defer model.ModelLock.Unlock()
+	model.TFPD = make(map[string]DocData)
+	model.DF = make(map[string]int)
+	model.UrlFiles = make(map[string]string)
+	model.DocCount = 0
+	model.TermCount = 0
+	model.DirLength = 0
+	model.DA = 0
+	model.Name = ""
+	model.IsComplete = false
+}
+
 func NewEmptyModel() *Model {
 	return &Model{
 		TFPD:      make(map[string]DocData),
@@ -182,6 +196,9 @@ func LoadCachedGobToModel(dirPath string, model *Model) {
 			continue
 		}
 	}
+	fmt.Println("------------------")
+	fmt.Println(util.TerminalGreen + "FINISHED LOADING MODEL" + util.TerminalReset)
+	fmt.Println("------------------")
 }
 
 func AddFolderToModel(dirPath string, model *Model) {

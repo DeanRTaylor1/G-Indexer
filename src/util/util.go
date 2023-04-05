@@ -94,6 +94,36 @@ func SelectDirectory() string {
 	return selectedDirectory
 }
 
+func GetCurrentAvailableModelDirectories() []string {
+	files, err := os.ReadDir(".")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	directories := []string{}
+	for _, f := range files {
+		if f.IsDir() {
+			if f.Name() == "src" || f.Name() == ".git" {
+				continue
+			}
+			directories = append(directories, f.Name())
+		}
+	}
+
+	return directories
+}
+
+func CheckDirIsValid(dirName string) (bool, error) {
+	_, err := os.Stat("./" + dirName)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil // Directory does not exist
+		}
+		return false, err // Some other error occurred
+	}
+	return true, nil // Directory exists
+}
+
 func GetDirLength(dirName string) int {
 	files, err := os.ReadDir("./" + dirName)
 	if err != nil {
@@ -102,3 +132,14 @@ func GetDirLength(dirName string) int {
 
 	return len(files)
 }
+
+const (
+	TerminalReset  = "\033[0m"
+	TerminalRed    = "\033[31m"
+	TerminalGreen  = "\033[32m"
+	TerminalYellow = "\033[33m"
+	TerminalBlue   = "\033[34m"
+	TerminalPurple = "\033[35m"
+	TerminalCyan   = "\033[36m"
+	TerminalWhite  = "\033[37m"
+)

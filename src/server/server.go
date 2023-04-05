@@ -13,6 +13,7 @@ import (
 	"github.com/deanrtaylor1/gosearch/src/bm25"
 	"github.com/deanrtaylor1/gosearch/src/lexer"
 	"github.com/deanrtaylor1/gosearch/src/tfidf"
+	"github.com/deanrtaylor1/gosearch/src/util"
 	webcrawler "github.com/deanrtaylor1/gosearch/src/web-crawler"
 
 	"github.com/tebeka/snowball"
@@ -27,6 +28,11 @@ type resultsMap struct {
 type Response struct {
 	Message string       `json:"Message"`
 	Data    []resultsMap `json:"Data"`
+}
+
+type IndexResponse struct {
+	Message string
+	Data    []string
 }
 
 type ProgressResponse struct {
@@ -105,6 +111,8 @@ func handleApiCrawl(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 		return
 	}
 
+	bm25.ResetModel(model)
+
 	go func() {
 		webcrawler.CrawlDomainUpdateModel(urlToCrawl, model)
 		model.ModelLock.Lock()
@@ -166,9 +174,15 @@ func handleApiProgress(w http.ResponseWriter, r *http.Request, model *bm25.Model
 	docCount := model.DocCount
 	dirLength := model.DirLength
 	termCount := model.TermCount
+	var message string
+	if model.IsComplete {
+		message = "Complete"
+	} else {
+		message = "In Progress"
+	}
 
 	response := ProgressResponse{
-		Message:       "In Progress",
+		Message:       message,
 		IsComplete:    isComplete,
 		IndexProgress: indexProgress,
 		IndexName:     indexName,
@@ -307,6 +321,79 @@ func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) 
 
 }
 
+func handleApiIndexes(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
+	directories := util.GetCurrentAvailableModelDirectories()
+
+	response := &IndexResponse{
+		Message: "Available indexes",
+		Data:    directories,
+	}
+
+	jsonBytes, err := json.Marshal(response)
+
+	if err != nil {
+		log.Println("Unable to marshal json: ", err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, err = w.Write(jsonBytes)
+	if err != nil {
+		log.Println(err)
+	}
+
+}
+
+func handleApiIndex(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
+	requestBodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(string(requestBodyBytes))
+	if isValid, err := util.CheckDirIsValid(string(requestBodyBytes)); !isValid {
+		if err != nil {
+			log.Println(err)
+		}
+		customMessage := "Directory is not valid or does not exist"
+		jsonBytes, err := json.Marshal(&struct{ Message string }{Message: customMessage})
+
+		if err != nil {
+			log.Println("Unable to marshal json: ", err)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, err = w.Write(jsonBytes)
+		if err != nil {
+			log.Println(err)
+		}
+		return
+	}
+
+	bm25.ResetModel(model)
+
+	fmt.Println("Starting server and indexing directory: ", requestBodyBytes)
+	model.Name = string(requestBodyBytes)
+	go func() {
+		bm25.LoadCachedGobToModel("./"+string(requestBodyBytes), model)
+		model.ModelLock.Lock()
+		model.DA = float32(model.TermCount) / float32(model.DocCount)
+		model.IsComplete = true
+		model.ModelLock.Unlock()
+	}()
+
+	jsonBytes, err := json.Marshal(&struct{ Message string }{Message: "Indexing started"})
+
+	if err != nil {
+		log.Println("Unable to marshal json: ", err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, err = w.Write(jsonBytes)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
 func handleRequests(model *bm25.Model) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(r.Method, r.URL.Path)
@@ -319,10 +406,14 @@ func handleRequests(model *bm25.Model) http.HandlerFunc {
 			http.ServeFile(w, r, "src/static/styles.css")
 		case r.Method == "GET" && r.URL.Path == "/index.js":
 			http.ServeFile(w, r, "src/static/index.js")
-		case r.Method == "POST" && r.URL.Path == "/api/crawl":
-			handleApiCrawl(w, r, model)
+		case r.Method == "GET" && r.URL.Path == "/api/indexes":
+			handleApiIndexes(w, r, model)
 		case r.Method == "GET" && r.URL.Path == "/api/progress":
 			handleApiProgress(w, r, model)
+		case r.Method == "POST" && r.URL.Path == "/api/crawl":
+			handleApiCrawl(w, r, model)
+		case r.Method == "POST" && r.URL.Path == "/api/index":
+			handleApiIndex(w, r, model)
 		case r.Method == "POST" && r.URL.Path == "/api/search":
 			handleApiSearch(w, r, model)
 		default:
