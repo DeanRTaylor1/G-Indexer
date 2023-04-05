@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/deanrtaylor1/gosearch/src/lexer"
@@ -86,6 +85,97 @@ func getFileUrl(filePath string) (string, error) {
 
 }
 
+func readUrlFiles(dirPath string, fileName string, model *Model) {
+	compressedData, err := os.ReadFile(dirPath + "/" + fileName)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	gzipReader, err := gzip.NewReader(bytes.NewReader(compressedData))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	model.ModelLock.Lock()
+
+	decoder := gob.NewDecoder(gzipReader)
+	gzipReader.Close()
+	var decompressedURLFiles map[string]string
+	if err := decoder.Decode(&decompressedURLFiles); err != nil {
+		log.Println(err)
+		return
+	}
+	model.UrlFiles = decompressedURLFiles
+
+	model.ModelLock.Unlock()
+	fmt.Println("\033[32mmapped urls\033[0m")
+}
+
+func readCompressedFilesToModel(dirPath string, fileName string, model *Model) {
+	compressedData, err := os.ReadFile(dirPath + "/" + fileName)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	gzipReader, err := gzip.NewReader(bytes.NewReader(compressedData))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	decoder := gob.NewDecoder(gzipReader)
+	gzipReader.Close()
+	var decompressedDataMap map[string]util.IndexedData
+	if err := decoder.Decode(&decompressedDataMap); err != nil {
+		log.Println(err)
+		return
+	}
+	model.ModelLock.Lock()
+	model.DirLength += float32(len(decompressedDataMap))
+	model.ModelLock.Unlock()
+
+	for filePath, v := range decompressedDataMap {
+		model.ModelLock.Lock()
+		model.DocCount += 1
+		model.ModelLock.Unlock()
+		//fmt.Println(filePath)
+		content := v.Content
+		//fmt.Println(filePath, content)
+
+		fileSize := len(content)
+
+		fmt.Println(filePath, " => ", fileSize)
+		tf := make(TermFreq)
+
+		lexer := lexer.NewLexer(content)
+		for {
+			token, err := lexer.Next()
+			if err != nil {
+				fmt.Println("EOF")
+				break
+			}
+
+			tf[token] += 1
+			//stats := mapToSortedSlice(tf)
+			//fmt.Println(filePath, " => ", token, " => ", tf[token])
+		}
+		model.ModelLock.Lock()
+		for token := range tf {
+			model.TermCount += 1
+			model.DF[token] += 1
+		}
+		model.ModelLock.Unlock()
+
+		model.ModelLock.Lock()
+
+		model.TFPD[filePath] = ConvertToDocData(tf)
+		model.ModelLock.Unlock()
+	}
+}
+
 func LoadCachedGobToModel(dirPath string, model *Model) {
 	dir, err := os.Open(dirPath)
 	if err != nil {
@@ -100,302 +190,20 @@ func LoadCachedGobToModel(dirPath string, model *Model) {
 
 	for _, fi := range fileInfos {
 		if fi.Name() == "url-files.gz" {
-			compressedData, err := os.ReadFile(dirPath + "/" + fi.Name())
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
-			gzipReader, err := gzip.NewReader(bytes.NewReader(compressedData))
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
-			model.ModelLock.Lock()
-
-			decoder := gob.NewDecoder(gzipReader)
-			gzipReader.Close()
-			var decompressedURLFiles map[string]string
-			if err := decoder.Decode(&decompressedURLFiles); err != nil {
-				log.Println(err)
-				return
-			}
-			model.UrlFiles = decompressedURLFiles
-
-			model.ModelLock.Unlock()
-			fmt.Println("\033[32mmapped urls\033[0m")
+			readUrlFiles(dirPath, fi.Name(), model)
 			break
 		}
 	}
 
 	for _, fi := range fileInfos {
 		if filepath.Ext(fi.Name()) == ".gz" && fi.Name() != "url-files.gz" {
-
-			compressedData, err := os.ReadFile(dirPath + "/" + fi.Name())
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
-			gzipReader, err := gzip.NewReader(bytes.NewReader(compressedData))
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
-			decoder := gob.NewDecoder(gzipReader)
-			gzipReader.Close()
-			var decompressedDataMap map[string]util.IndexedData
-			if err := decoder.Decode(&decompressedDataMap); err != nil {
-				log.Println(err)
-				return
-			}
-			model.ModelLock.Lock()
-			model.DirLength += float32(len(decompressedDataMap))
-			model.ModelLock.Unlock()
-
-			for filePath, v := range decompressedDataMap {
-				model.ModelLock.Lock()
-				model.DocCount += 1
-				model.ModelLock.Unlock()
-				//fmt.Println(filePath)
-				content := v.Content
-				//fmt.Println(filePath, content)
-
-				fileSize := len(content)
-
-				fmt.Println(filePath, " => ", fileSize)
-				tf := make(TermFreq)
-
-				lexer := lexer.NewLexer(content)
-				for {
-					token, err := lexer.Next()
-					if err != nil {
-						fmt.Println("EOF")
-						break
-					}
-
-					tf[token] += 1
-					//stats := mapToSortedSlice(tf)
-					//fmt.Println(filePath, " => ", token, " => ", tf[token])
-				}
-				model.ModelLock.Lock()
-				for token := range tf {
-					model.TermCount += 1
-					model.DF[token] += 1
-				}
-				model.ModelLock.Unlock()
-
-				model.ModelLock.Lock()
-
-				model.TFPD[filePath] = ConvertToDocData(tf)
-				model.ModelLock.Unlock()
-			}
-
+			readCompressedFilesToModel(dirPath, fi.Name(), model)
 			continue
 		}
 	}
 	fmt.Println("------------------")
 	fmt.Println(util.TerminalGreen + "FINISHED LOADING MODEL" + util.TerminalReset)
 	fmt.Println("------------------")
-}
-
-func AddFolderToModel(dirPath string, model *Model) {
-
-	dir, err := os.Open(dirPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer dir.Close()
-
-	fileInfos, err := dir.Readdir(-1)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, fi := range fileInfos {
-		if fi.IsDir() {
-			if fi.Name() == "specs" {
-				continue
-			}
-			subDirPath := filepath.Join(dirPath, fi.Name())
-			AddFolderToModel(subDirPath, model)
-		}
-
-		if fi.Name() == "urls.json" {
-			f, err := os.Open(dirPath + "/" + fi.Name())
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			defer f.Close()
-			decoder := json.NewDecoder(f)
-			model.ModelLock.Lock()
-
-			err = decoder.Decode(&model.UrlFiles)
-			if err != nil {
-				fmt.Println(err)
-				model.ModelLock.Unlock()
-				return
-			}
-			model.ModelLock.Unlock()
-			fmt.Println("\033[32mmapped urls\033[0m")
-			continue
-		}
-
-		if fi.Name() == "cachedData.json" {
-			f, err := os.Open(dirPath + "/" + fi.Name())
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			defer f.Close()
-			decoder := json.NewDecoder(f)
-
-			var dataMap map[string]util.IndexedData
-			err = decoder.Decode(&dataMap)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			//fmt.Println(dataMap)
-
-			for filePath, v := range dataMap {
-				model.DocCount += 1
-				//fmt.Println(filePath)
-				content := v.Content
-				//fmt.Println(filePath, content)
-
-				fileSize := len(content)
-
-				fmt.Println(filePath, " => ", fileSize)
-				tf := make(TermFreq)
-
-				lexer := lexer.NewLexer(content)
-				for {
-					token, err := lexer.Next()
-					if err != nil {
-						fmt.Println("EOF")
-						break
-					}
-
-					tf[token] += 1
-					//stats := mapToSortedSlice(tf)
-					//fmt.Println(filePath, " => ", token, " => ", tf[token])
-				}
-				model.ModelLock.Lock()
-				for token := range tf {
-					model.TermCount += 1
-					model.DF[token] += 1
-				}
-				model.ModelLock.Unlock()
-
-				model.ModelLock.Lock()
-				if _, exists := model.UrlFiles[filePath]; !exists {
-					fileUrl, err := getFileUrl(filePath)
-					if err != nil {
-						log.Println(err)
-					} else {
-						model.UrlFiles[filePath] = fileUrl
-					}
-				}
-
-				model.TFPD[filePath] = ConvertToDocData(tf)
-				model.ModelLock.Unlock()
-			}
-
-			continue
-		}
-
-		model.ModelLock.Lock()
-		if model.UrlFiles == nil {
-			model.UrlFiles = make(map[string]string)
-		}
-		model.ModelLock.Unlock()
-		switch filepath.Ext(fi.Name()) {
-		case ".xhtml", ".xml":
-
-			filePath := dirPath + "/" + fi.Name()
-			fmt.Println("Indexing file: ", filePath)
-			content := lexer.ReadEntireXMLFile(filePath)
-			fileSize := len(content)
-
-			fmt.Println(filePath, " => ", fileSize)
-			tf := make(TermFreq)
-
-			lexer := lexer.NewLexer(content)
-			for {
-				token, err := lexer.Next()
-				if err != nil {
-					fmt.Println("EOF")
-					break
-				}
-
-				tf[token] += 1
-				//stats := mapToSortedSlice(tf)
-			}
-			model.ModelLock.Lock()
-			model.DocCount += 1
-			for token := range tf {
-				model.TermCount += 1
-				model.DF[token] += 1
-			}
-			model.ModelLock.Unlock()
-
-			model.ModelLock.Lock()
-			if _, exists := model.UrlFiles[filePath]; !exists {
-				fileUrl, err := getFileUrl(filePath)
-				if err != nil {
-					log.Println(err)
-				} else {
-					model.UrlFiles[filePath] = fileUrl
-				}
-			}
-
-			model.TFPD[filePath] = ConvertToDocData(tf)
-			model.ModelLock.Unlock()
-
-		case ".html":
-			filePath := dirPath + "/" + fi.Name()
-			fmt.Println("Indexing file: ", filePath)
-			content := lexer.ReadEntireHTMLFile(filePath)
-			fileSize := len(content)
-
-			fmt.Println(filePath, " => ", fileSize)
-			tf := make(TermFreq)
-
-			lexer := lexer.NewLexer(content)
-			for {
-				token, err := lexer.Next()
-				if err != nil {
-					fmt.Println("EOF")
-					break
-				}
-
-				tf[token] += 1
-				//stats := mapToSortedSlice(tf)
-			}
-			model.ModelLock.Lock()
-			model.DocCount += 1
-			for token := range tf {
-				model.TermCount += 1
-				model.DF[token] += 1
-			}
-			model.ModelLock.Unlock()
-			extension := filepath.Ext(filePath)
-			filePathWithoutExt := strings.TrimSuffix(filePath, extension)
-
-			model.ModelLock.Lock()
-			model.TFPD[filePathWithoutExt] = ConvertToDocData(tf)
-			model.ModelLock.Unlock()
-		default:
-			fmt.Fprint(os.Stderr, "\033[31mSkipping file:", fi.Name(), "(not HTML. .xhtml or .xml)\033[0m")
-			fmt.Println()
-			continue
-		}
-	}
-
 }
 
 func ConvertToDocData(tf TermFreq) DocData {

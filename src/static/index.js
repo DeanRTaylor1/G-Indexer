@@ -117,6 +117,7 @@ const checkProgress = async () => {
       } else {
         link.href = url;
       }
+
       link.innerText = apiResult.index_name;
       link.className = "no-style-link";
       link.target = "_blank";
