@@ -9,6 +9,7 @@ const querySection = document.getElementById("querySection");
 const indexSelect = document.getElementById("indexSelect");
 const statusBox = document.getElementById("statusBox");
 const indexName = document.getElementById("indexName");
+const resultsTitle = document.getElementById("resultsTitle");
 
 indexSelect.addEventListener("change", (event) => startIndex(event));
 
@@ -35,8 +36,6 @@ function showQuerySection() {
 }
 
 function showResults() {
-  const resultsTitle = document.getElementById("resultsTitle");
-
   resultsTitle.classList.remove("hidden");
   resultsTitle.style.display = "flex";
   results.style.display = "flex";
@@ -149,8 +148,11 @@ const checkProgress = async () => {
 };
 
 const startCrawl = async (event, query) => {
-  showLoadingCircle();
   event.preventDefault();
+
+  results.style.display = "none";
+  showLoadingCircle();
+  resultsTitle.style.display = "none";
   let timer;
   try {
     const response = await fetch("/api/crawl", {
@@ -208,6 +210,9 @@ const getIndexes = async () => {
 
 const startIndex = async (event) => {
   event.preventDefault();
+  results.style.display = "none";
+  resultsTitle.style.display = "none";
+
   const index = indexSelect.value;
   console.log(index);
   if (index === "Select an index") {
