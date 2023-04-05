@@ -1,6 +1,7 @@
 package server
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -392,20 +393,23 @@ func handleApiIndex(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 	}
 }
 
+//go:embed static
+var staticFiles embed.FS
+
 func handleRequests(model *bm25.Model) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(r.Method, r.URL.Path)
 		switch {
 		case r.Method == "GET" && r.URL.Path == "/":
+			http.Redirect(w, r, "/static/index.html", http.StatusSeeOther)
+		case r.Method == "GET" && r.URL.Path == "/static/":
 			http.ServeFile(w, r, "src/static/index.html")
-		case r.Method == "GET" && r.URL.Path == "/index.html":
-			http.ServeFile(w, r, "src/static/index.html")
-		case r.Method == "GET" && r.URL.Path == "/styles.css":
-			http.ServeFile(w, r, "src/static/styles.css")
-		case r.Method == "GET" && r.URL.Path == "/favicon.ico":
-			http.ServeFile(w, r, "src/static/favicon.ico")
-		case r.Method == "GET" && r.URL.Path == "/index.js":
-			http.ServeFile(w, r, "src/static/index.js")
+		case r.Method == "GET" && r.URL.Path == "/static/styles.css":
+			http.FileServer(http.FS(staticFiles)).ServeHTTP(w, r)
+		case r.Method == "GET" && r.URL.Path == "/static/favicon.ico":
+			http.FileServer(http.FS(staticFiles)).ServeHTTP(w, r)
+		case r.Method == "GET" && r.URL.Path == "/static/index.js":
+			http.FileServer(http.FS(staticFiles)).ServeHTTP(w, r)
 		case r.Method == "GET" && r.URL.Path == "/api/indexes":
 			handleApiIndexes(w, r, model)
 		case r.Method == "GET" && r.URL.Path == "/api/progress":
