@@ -6,9 +6,12 @@ GoSearch is a search engine for static websites, implemented in Go. It utilizes 
 
 ## Features
 
-- Web crawler for static websites
-- BM25 algorithm for search result ranking
-- Web server with a basic user interface for search
+- Web crawler and search engine for static websites.
+- BM25 algorithm for search result ranking.
+- Web server with a basic user interface for search.
+- Index and search any website as long as it can be crawled.
+- compressed indexes stored locally for reusability.
+- Utilises Go routines for blazing fast runtimes.
 
 ## Installation
 
