@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/gob"
-	"fmt"
 	"log"
 	"math"
 	"os"
@@ -108,7 +107,7 @@ func readUrlFiles(dirPath string, fileName string, model *Model) {
 	model.UrlFiles = decompressedURLFiles
 
 	model.ModelLock.Unlock()
-	fmt.Println("\033[32mmapped urls\033[0m")
+	log.Println("\033[32mmapped urls\033[0m")
 }
 
 func readCompressedFilesToModel(dirPath string, fileName string, model *Model) {
@@ -139,26 +138,26 @@ func readCompressedFilesToModel(dirPath string, fileName string, model *Model) {
 		model.ModelLock.Lock()
 		model.DocCount += 1
 		model.ModelLock.Unlock()
-		//fmt.Println(filePath)
+		//log.Println(filePath)
 		content := v.Content
-		//fmt.Println(filePath, content)
+		//log.Println(filePath, content)
 
 		fileSize := len(content)
 
-		fmt.Println(filePath, " => ", fileSize)
+		log.Println(filePath, " => ", fileSize)
 		tf := make(TermFreq)
 
 		lexer := lexer.NewLexer(content)
 		for {
 			token, err := lexer.Next()
 			if err != nil {
-				fmt.Println("EOF")
+				//log.Println("EOF")
 				break
 			}
 
 			tf[token] += 1
 			//stats := mapToSortedSlice(tf)
-			//fmt.Println(filePath, " => ", token, " => ", tf[token])
+			//log.Println(filePath, " => ", token, " => ", tf[token])
 		}
 		model.ModelLock.Lock()
 		for token := range tf {
@@ -175,7 +174,7 @@ func readCompressedFilesToModel(dirPath string, fileName string, model *Model) {
 }
 
 func LoadCachedGobToModel(dirPath string, model *Model) {
-	fmt.Println(dirPath)
+	log.Println(dirPath)
 	dir, err := os.Open(dirPath)
 	if err != nil {
 		log.Fatal(err)
@@ -200,9 +199,9 @@ func LoadCachedGobToModel(dirPath string, model *Model) {
 			continue
 		}
 	}
-	fmt.Println("------------------")
-	fmt.Println(util.TerminalGreen + "FINISHED LOADING MODEL" + util.TerminalReset)
-	fmt.Println("------------------")
+	log.Println("------------------")
+	log.Println(util.TerminalGreen + "FINISHED LOADING MODEL" + util.TerminalReset)
+	log.Println("------------------")
 }
 
 func ConvertToDocData(tf TermFreq) DocData {
@@ -239,12 +238,12 @@ func ComputeIDF(t string, N int, df DocFreq) float32 {
 	//N The total number of documents in the collection.
 
 	//df The number of documents in the collection that contain the term.
-	//fmt.Println(df[t])
+	//log.Println(df[t])
 
 	M := float64(df[t]) + 0.5
 
 	n := math.Max(float64(N)-float64(df[t])+0.5, M)
-	// fmt.Println(M, n, N)
+	// log.Println(M, n, N)
 	//If M is 0, set it to 1 to avoid division by zero errors.
 
 	//using the log10 function to make the IDF values more readable
@@ -258,7 +257,7 @@ func ComputeIDF(t string, N int, df DocFreq) float32 {
 // func ModelToJSON(m Model, createFile bool, filename string, fileWriter FileWriter) string {
 // 	b, err := json.Marshal(m)
 // 	if err != nil {
-// 		fmt.Println("error:", err)
+// 		log.Println("error:", err)
 // 	}
 // 	if createFile {
 // 		fileWriter(b, filename)

@@ -67,22 +67,22 @@ func filterResults(results []resultsMap, filter func(float32) bool) []resultsMap
 func handleApiCrawl(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 	requestBodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
-	fmt.Println(string(requestBodyBytes))
+	log.Println(string(requestBodyBytes))
 	urlToCrawl := string(requestBodyBytes)
 	_, err = url.ParseRequestURI(urlToCrawl)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		response, err := json.Marshal(struct{ Message string }{Message: "Invalid URL"})
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			return
 		}
 		_, err = w.Write(response)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			return
 		}
 		return
@@ -103,26 +103,26 @@ func handleApiCrawl(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 	}
 	jsonBytes, err := json.Marshal(response)
 	if err != nil {
-		fmt.Println("Unable to marshal json: ", err)
+		log.Println("Unable to marshal json: ", err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_, err = w.Write(jsonBytes)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
 
-	fmt.Println("------------------")
+	log.Println("------------------")
 	fmt.Printf("/33]32m INTIALIZING CRAWLER THROUGH %v", string(requestBodyBytes))
-	fmt.Println("------------------")
+	log.Println("------------------")
 
 }
 
 func handleApiProgress(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 	model.ModelLock.Lock()
 	defer model.ModelLock.Unlock()
-	fmt.Println(model.DocCount, model.DirLength)
+
 	if model.DocCount == 0 {
 		response := ProgressResponse{
 			Message:       "Not Started",
@@ -132,13 +132,13 @@ func handleApiProgress(w http.ResponseWriter, r *http.Request, model *bm25.Model
 		}
 		jsonBytes, err := json.Marshal(response)
 		if err != nil {
-			fmt.Println("Unable to marshal json: ", err)
+			log.Println(util.TerminalRed+"Unable to marshal json: ", err, util.TerminalRed)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		_, err = w.Write(jsonBytes)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			return
 		}
 		return
@@ -168,13 +168,13 @@ func handleApiProgress(w http.ResponseWriter, r *http.Request, model *bm25.Model
 
 	jsonBytes, err := json.Marshal(response)
 	if err != nil {
-		fmt.Println("Unable to marshal json: ", err)
+		log.Println("Unable to marshal json: ", err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_, err = w.Write(jsonBytes)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
 }
@@ -190,10 +190,10 @@ func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) 
 
 	requestBodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
-	fmt.Println(string(requestBodyBytes))
+	log.Println(string(requestBodyBytes))
 	var result []resultsMap
 
 	count := 0
@@ -201,7 +201,7 @@ func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) 
 	defer model.ModelLock.Unlock()
 
 	for path, table := range model.TFPD {
-		//fmt.Println(path)
+		//log.Println(path)
 		querylexer := lexer.NewLexer(string(requestBodyBytes))
 		var rank float32 = 0
 		for {
@@ -209,12 +209,8 @@ func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) 
 			if err != nil {
 				break
 			}
-
-			//fmt.Println(bm25.ComputeTF(token, table.TermCount, table.Terms, model.DA), bm25.ComputeIDF(token, len(model.TFPD), model.DF), model.DA)
 			rank += bm25.ComputeTF(token, table.TermCount, table.Terms, model.DA) * bm25.ComputeIDF(token, len(model.TFPD), model.DF)
 			count += 1
-			//stats := mapToSortedSlice(tf)
-			// fmt.Println(token, " => ", rank)
 		}
 		result = append(result, resultsMap{model.UrlFiles[path], path, rank})
 		sort.Slice(result, func(i, j int) bool {
@@ -230,17 +226,17 @@ func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) 
 		max = 20
 	}
 
-	for i := 0; i < max; i++ {
-		fmt.Println(result[i].Path, " => ", result[i].TF)
-	}
+	// for i := 0; i < max; i++ {
+	// 	log.Println(result[i].Path, " => ", result[i].TF)
+	// }
 
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
 	var result2 []resultsMap
 	if result[0].TF == 0 {
-		fmt.Println("No results found, trying again with tfidf")
+		log.Println("Query too generic, ranking with tf-idf")
 		for path, table := range model.TFPD {
 			querylexer := lexer.NewLexer(string(requestBodyBytes))
 			var rank float32 = 0
@@ -259,12 +255,12 @@ func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) 
 
 		}
 
-		for i := 0; i < max; i++ {
-			fmt.Println(result2[i].Path, " => ", result2[i].TF)
-		}
+		// for i := 0; i < max; i++ {
+		// 	log.Println(result2[i].Path, " => ", result2[i].TF)
+		// }
 
 	}
-	//fmt.Println(result2)
+	//log.Println(result2)
 
 	var data []resultsMap
 	if result2 != nil {
@@ -287,19 +283,19 @@ func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) 
 	}
 	jsonBytes, err := json.Marshal(response)
 	if err != nil {
-		fmt.Println("Unable to marshal json: ", err)
+		log.Println("Unable to marshal json: ", err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_, err = w.Write(jsonBytes)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
 
-	fmt.Println("------------------")
-	fmt.Println("Queried ", count, " documents in ", elapsed.Milliseconds(), " ms")
-	fmt.Println("------------------")
+	log.Println("------------------")
+	log.Println(util.TerminalCyan+"Queried ", count, " documents in ", elapsed.Milliseconds(), " ms"+util.TerminalReset)
+	log.Println("------------------")
 
 }
 
@@ -326,13 +322,13 @@ func handleApiIndexes(w http.ResponseWriter, r *http.Request, model *bm25.Model)
 }
 
 func handleApiIndex(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
-	fmt.Println("received")
+	log.Println("received")
 	requestBodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
-	fmt.Println(string(requestBodyBytes))
+	log.Println(string(requestBodyBytes))
 	if isValid, err := util.CheckDirIsValid("./indexes/" + string(requestBodyBytes)); !isValid {
 		if err != nil {
 			log.Println(err)
@@ -351,11 +347,11 @@ func handleApiIndex(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 		}
 		return
 	}
-	fmt.Println("received number 2")
+	log.Println("received number 2")
 
 	bm25.ResetModel(model)
 
-	fmt.Println("Starting server and indexing directory: ", "./indexes/", requestBodyBytes)
+	log.Println("Starting server and indexing directory: ", "./indexes/", requestBodyBytes)
 	model.Name = string(requestBodyBytes)
 	go func() {
 		bm25.LoadCachedGobToModel("./indexes/"+string(requestBodyBytes), model)
@@ -380,7 +376,7 @@ func handleApiIndex(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 
 func handleRequests(model *bm25.Model) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println(r.Method, r.URL.Path)
+		log.Println(r.Method, r.URL.Path)
 		switch {
 		case r.Method == "GET" && r.URL.Path == "/":
 			http.ServeFile(w, r, "static/index.html")
@@ -413,6 +409,6 @@ func handleRequests(model *bm25.Model) http.HandlerFunc {
 
 func Serve(model *bm25.Model) {
 	http.HandleFunc("/", handleRequests(model))
-	fmt.Println("Listening on port 8080...")
+	log.Println("Listening on port 8080...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

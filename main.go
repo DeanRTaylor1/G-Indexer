@@ -2,7 +2,11 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log"
+	"net/http"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -44,7 +48,68 @@ func openBrowser() {
 	}
 }
 
+func downloadStaticDir() error {
+	staticDir := "static"
+
+	// Check if the static directory exists
+	_, err := os.Stat(staticDir)
+	if !os.IsNotExist(err) {
+		// Directory exists, no need to download
+		return nil
+	}
+
+	// Create the static directory
+	err = os.Mkdir(staticDir, 0755)
+	if err != nil {
+		return err
+	}
+
+	// List of files in the static directory on GitHub
+	files := []string{
+		"index.html",
+		"styles.css",
+		"favicon.ico",
+		"index.js",
+	}
+
+	// Base URL for the raw content on GitHub
+	baseURL := "https://raw.githubusercontent.com/DeanRTaylor1/gosearch/main/static/"
+
+	// Download each file
+	for _, file := range files {
+		resp, err := http.Get(baseURL + file)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+
+		// Create the file on disk
+		out, err := os.Create(filepath.Join(staticDir, file))
+		if err != nil {
+			return err
+		}
+		defer out.Close()
+
+		// Copy the content from the response to the file
+		_, err = io.Copy(out, resp.Body)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func main() {
+	files, err := os.ReadDir("./static")
+	if err != nil || len(files) != 4 {
+		log.Println(err)
+		err := downloadStaticDir()
+		if err != nil {
+			fmt.Printf("Error downloading the static directory: %v\n", err)
+			fmt.Println("Please make sure you have write permissions in the current directory.")
+		}
+	}
 	if len(os.Args) < 1 {
 		help()
 		os.Exit(1)

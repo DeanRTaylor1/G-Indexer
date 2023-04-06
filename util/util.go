@@ -97,7 +97,11 @@ func SelectDirectory() string {
 func GetCurrentAvailableModelDirectories() []string {
 	files, err := os.ReadDir("./indexes")
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		err := os.Mkdir("./indexes", os.FileMode(0777))
+		if err != nil {
+			log.Println(err)
+		}
 	}
 
 	directories := []string{}

@@ -38,7 +38,7 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 	// Add your web crawling logic here
 	// When you find a new URL, send it to the channel: foundUrls <- newURL
 
-	fmt.Println("initiating get request to ", urlToCrawl)
+	// log.Println("initiating get request to ", urlToCrawl)
 	resp, err := http.Get(urlToCrawl)
 
 	if err != nil {
@@ -47,7 +47,7 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 	}
 
 	defer resp.Body.Close()
-	fmt.Println("accessing http body", urlToCrawl)
+	//log.Println("accessing http body", urlToCrawl)
 	body, err := io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -57,7 +57,7 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 
 	fullUrl, err := url.Parse(urlToCrawl)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 
 	textContent := lexer.ParseHtmlTextContent(string(body))
@@ -81,16 +81,16 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 
 	content := IndexedData.Content
 
-	fileSize := len(content)
+	// fileSize := len(content)
 
-	fmt.Println(IndexedData.URL, " => ", fileSize)
+	// log.Println(IndexedData.URL, " => ", fileSize)
 	tf := make(bm25.TermFreq)
 
 	tokenLexer := lexer.NewLexer(content)
 	for {
 		token, err := tokenLexer.Next()
 		if err != nil {
-			fmt.Println("EOF")
+			log.Println("EOF")
 			break
 		}
 
@@ -108,7 +108,7 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 	links := lexer.ParseLinks(string(body))
 
 	for _, link := range links {
-		fmt.Println(link)
+		// log.Println(link)
 		if shouldIgnoreLink(link) {
 			continue
 		}
@@ -120,11 +120,11 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 		}
 
 		if !parsedLink.IsAbs() {
-			fmt.Println("link is relative")
+			// log.Println("link is relative")
 			// Resolve the relative link against the base URL
 			resolvedLink := fullUrl.ResolveReference(parsedLink)
 			link = resolvedLink.String()
-			fmt.Println("new link", link)
+			// log.Println("new link", link)
 		}
 
 		foundUrls <- link
@@ -134,7 +134,7 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 }
 
 func CrawlDomainUpdateModel(domain string, model *bm25.Model) {
-	fmt.Println("crawling domain: ", domain)
+	log.Println("crawling domain: ", domain)
 	start := time.Now()
 	cachedData := make(map[string]util.IndexedData)
 	visited := make(map[string]bool)
@@ -146,10 +146,10 @@ func CrawlDomainUpdateModel(domain string, model *bm25.Model) {
 
 	fullUrl, err := url.Parse(domain)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 	dirName := fmt.Sprint("indexes/" + fullUrl.Host)
-	fmt.Println("creating dir", dirName)
+	// log.Println("creating dir", dirName)
 
 	err = os.MkdirAll(dirName, os.ModePerm)
 	model.ModelLock.Lock()
@@ -157,7 +157,7 @@ func CrawlDomainUpdateModel(domain string, model *bm25.Model) {
 	model.ModelLock.Unlock()
 
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		log.Fatal(err)
 	}
 
@@ -185,11 +185,11 @@ outerLoop:
 
 		select {
 		case newURL := <-foundUrls:
-			fmt.Println("Received new URL: ", newURL, "")
+			// log.Println("Received new URL: ", newURL, "")
 			visitedMutex.Lock()
 			numberOfVisitedURLs := len(visited)
 			if numberOfVisitedURLs >= maxURLsToCrawl {
-				fmt.Println("Reached max number of URLs to crawl: ", maxURLsToCrawl)
+				// log.Println("Reached max number of URLs to crawl: ", maxURLsToCrawl)
 				visitedMutex.Unlock()
 				model.ModelLock.Lock()
 				model.IsComplete = true
@@ -200,15 +200,15 @@ outerLoop:
 
 				encoder := gob.NewEncoder(gzipWriter)
 				if err := encoder.Encode(cachedData); err != nil {
-					log.Fatalf("Error encoding indexed data: %v", err)
+					log.Printf("Error encoding indexed data: %v", err)
 				}
 
 				if err := gzipWriter.Close(); err != nil {
-					log.Fatalf("Error closing gzip writer: %v", err)
+					log.Printf("Error closing gzip writer: %v", err)
 				}
 				filename := "indexed-data.gz"
 				if err := os.WriteFile(dirName+"./"+filename, compressedData.Bytes(), 0644); err != nil {
-					log.Fatalf("Error writing compressed data to disk: %v", err)
+					log.Printf("Error writing compressed data to disk: %v", err)
 				}
 				cachedDataMutex.Unlock()
 				urlsMutex.Lock()
@@ -228,14 +228,14 @@ outerLoop:
 					log.Fatalf("Error writing compressed data to disk: %v", err)
 				}
 				urlsMutex.Unlock()
-				fmt.Println("\033[31m------------------------------------")
-				fmt.Println("\033[31mFINISHED CRAWLING LIMIT REACHED")
-				fmt.Println("\033[31m------------------------------------\033[0m")
+				log.Println("\033[31m------------------------------------")
+				log.Println("\033[31mFINISHED CRAWLING LIMIT REACHED")
+				log.Println("\033[31m------------------------------------\033[0m")
 				break outerLoop
 			}
 			// If the URL has already been visited, skip it
 			if visited[newURL] {
-				fmt.Println("URL already visited: ", newURL)
+				// log.Println("URL already visited: ", newURL)
 				visitedMutex.Unlock()
 				continue
 			}
@@ -246,17 +246,17 @@ outerLoop:
 
 			// Check if the new URL has the same domain
 			if extractDomain(newURL) != extractDomain(domain) {
-				fmt.Println("URL is not in the same domain: ", newURL)
+				// log.Println("URL is not in the same domain: ", newURL)
 				continue
 			}
 
-			fmt.Println("URL is new, adding to the queue: ", newURL)
+			// log.Println("URL is new, adding to the queue: ", newURL)
 			urlPath, err := url.Parse(newURL)
 			if err != nil {
-				fmt.Println(err)
+				log.Println(err)
 			}
 			fileName := urlToName(urlPath.Path)
-			fmt.Println("Filename: ", fileName)
+			// log.Println("Filename: ", fileName)
 			urlsMutex.Lock()
 			urlFiles[newURL] = fileName
 			urlsMutex.Unlock()
@@ -267,7 +267,7 @@ outerLoop:
 			go func(urlToCrawl string) {
 				visitedMutex.Lock()
 				numberOfVisitedURLs := len(visited)
-				fmt.Println("Number of visited URLs: ", numberOfVisitedURLs)
+				log.Println("Number of visited URLs: ", numberOfVisitedURLs)
 				visitedMutex.Unlock()
 				defer wg.Done()
 				crawlPageUpdateModel(urlToCrawl, foundUrls, dirName, errChan, &cachedDataMutex, &cachedData, model)
@@ -315,9 +315,9 @@ outerLoop:
 			}
 			urlsMutex.Unlock()
 			elapsed := time.Since(start)
-			fmt.Println("\033[32m------------------------------------")
-			fmt.Printf("\033[32mFINISHED CRAWLING %v in %dMs\n", fullUrl.Host, elapsed.Milliseconds())
-			fmt.Println("\033[32m------------------------------------\033[0m")
+			log.Printf("\n\033[32m------------------------------------" + util.TerminalReset)
+			fmt.Printf("\033[32mFINISHED CRAWLING %v in %dMs%v\n", fullUrl.Host, elapsed.Milliseconds(), util.TerminalReset)
+			log.Printf("\033[32m------------------------------------\033[0m\n")
 			return
 		}
 	}
