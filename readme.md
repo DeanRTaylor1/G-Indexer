@@ -37,7 +37,9 @@ After building the project, you can run the gosearch binary with the following c
 By default, the web server will start on port 8080. Open a web browser and navigate to http://localhost:8080 to use the search interface.
 ```
 
-You can also use the command-line interface to interact with the search engine. Run ./gosearch --help for more information on available commands and options.
+You can also use the command-line interface to interact with the search engine. Run ./bin/gosearch cli
+
+Run ./gosearch --help for more information on available commands and options.
 
 ## Contributing
 

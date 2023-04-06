@@ -1,9 +1,6 @@
 package webcrawler
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/gob"
 	"fmt"
 	"io"
 	"log"
@@ -18,6 +15,7 @@ import (
 
 	"github.com/deanrtaylor1/gosearch/bm25"
 	"github.com/deanrtaylor1/gosearch/lexer"
+	"github.com/deanrtaylor1/gosearch/logger"
 	"github.com/deanrtaylor1/gosearch/util"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -90,7 +88,7 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 	for {
 		token, err := tokenLexer.Next()
 		if err != nil {
-			log.Println("EOF")
+			//log.Println("EOF")
 			break
 		}
 
@@ -139,10 +137,12 @@ func CrawlDomainUpdateModel(domain string, model *bm25.Model) {
 	cachedData := make(map[string]util.IndexedData)
 	visited := make(map[string]bool)
 	urlFiles := make(map[string]string)
+	reverseUrlFiles := make(map[string]string)
 
 	cachedDataMutex := sync.Mutex{}
 	visitedMutex := sync.Mutex{}
 	urlsMutex := sync.Mutex{}
+	reverseUrlsMutex := sync.Mutex{}
 
 	fullUrl, err := url.Parse(domain)
 	if err != nil {
@@ -194,40 +194,27 @@ outerLoop:
 				model.ModelLock.Lock()
 				model.IsComplete = true
 				model.ModelLock.Unlock()
+
 				cachedDataMutex.Lock()
-				var compressedData bytes.Buffer
-				gzipWriter := gzip.NewWriter(&compressedData)
-
-				encoder := gob.NewEncoder(gzipWriter)
-				if err := encoder.Encode(cachedData); err != nil {
-					log.Printf("Error encoding indexed data: %v", err)
-				}
-
-				if err := gzipWriter.Close(); err != nil {
-					log.Printf("Error closing gzip writer: %v", err)
-				}
-				filename := "indexed-data.gz"
-				if err := os.WriteFile(dirName+"./"+filename, compressedData.Bytes(), 0644); err != nil {
-					log.Printf("Error writing compressed data to disk: %v", err)
+				err := bm25.CompressAndWriteGzipFile("indexed-data.gz", cachedData, dirName)
+				if err != nil {
+					log.Fatal(err)
 				}
 				cachedDataMutex.Unlock()
+
 				urlsMutex.Lock()
-				var compressedData2 bytes.Buffer
-				gzipWriter2 := gzip.NewWriter(&compressedData2)
-
-				encoder2 := gob.NewEncoder(gzipWriter2)
-				if err := encoder2.Encode(urlFiles); err != nil {
-					log.Fatalf("Error encoding indexed data: %v", err)
-				}
-
-				if err := gzipWriter2.Close(); err != nil {
-					log.Fatalf("Error closing gzip writer: %v", err)
-				}
-				filename2 := "url-files.gz"
-				if err := os.WriteFile(dirName+"./"+filename2, compressedData2.Bytes(), 0644); err != nil {
-					log.Fatalf("Error writing compressed data to disk: %v", err)
+				err = bm25.CompressAndWriteGzipFile("url-files.gz", urlFiles, dirName)
+				if err != nil {
+					log.Fatal(err)
 				}
 				urlsMutex.Unlock()
+
+				reverseUrlsMutex.Lock()
+				err = bm25.CompressAndWriteGzipFile("reverse-url-files.gz", reverseUrlFiles, dirName)
+				if err != nil {
+					log.Fatal(err)
+				}
+				reverseUrlsMutex.Unlock()
 				log.Println("\033[31m------------------------------------")
 				log.Println("\033[31mFINISHED CRAWLING LIMIT REACHED")
 				log.Println("\033[31m------------------------------------\033[0m")
@@ -259,61 +246,55 @@ outerLoop:
 			// log.Println("Filename: ", fileName)
 			urlsMutex.Lock()
 			urlFiles[newURL] = fileName
+			reverseUrlFiles[fileName] = newURL
 			urlsMutex.Unlock()
+
+			reverseUrlsMutex.Lock()
+			model.ReverseUrlFiles[fileName] = newURL
+			reverseUrlsMutex.Unlock()
+
 			model.ModelLock.Lock()
 			model.UrlFiles[newURL] = fileName
 			model.ModelLock.Unlock()
+
 			wg.Add(1)
 			go func(urlToCrawl string) {
-				visitedMutex.Lock()
-				numberOfVisitedURLs := len(visited)
-				log.Println("Number of visited URLs: ", numberOfVisitedURLs)
-				visitedMutex.Unlock()
+				// visitedMutex.Lock()
+				//numberOfVisitedURLs := len(visited)
+				//log.Println("Number of visited URLs: ", numberOfVisitedURLs)
+				// visitedMutex.Unlock()
 				defer wg.Done()
 				crawlPageUpdateModel(urlToCrawl, foundUrls, dirName, errChan, &cachedDataMutex, &cachedData, model)
 			}(newURL)
 
 		case err := <-errChan:
-			fmt.Printf("Error: %v\n", err)
+			logger.HandleError(err)
 
 		case <-done:
 			model.ModelLock.Lock()
 			model.IsComplete = true
 			model.ModelLock.Unlock()
+
 			cachedDataMutex.Lock()
-			var compressedData bytes.Buffer
-			gzipWriter := gzip.NewWriter(&compressedData)
-
-			encoder := gob.NewEncoder(gzipWriter)
-			if err := encoder.Encode(cachedData); err != nil {
-				log.Fatalf("Error encoding indexed data: %v", err)
-			}
-
-			if err := gzipWriter.Close(); err != nil {
-				log.Fatalf("Error closing gzip writer: %v", err)
-			}
-			filename := "indexed-data.gz"
-			if err := os.WriteFile(dirName+"./"+filename, compressedData.Bytes(), 0644); err != nil {
-				log.Fatalf("Error writing compressed data to disk: %v", err)
+			err := bm25.CompressAndWriteGzipFile("indexed-data.gz", cachedData, dirName)
+			if err != nil {
+				log.Fatal(err)
 			}
 			cachedDataMutex.Unlock()
+
 			urlsMutex.Lock()
-			var compressedData2 bytes.Buffer
-			gzipWriter2 := gzip.NewWriter(&compressedData2)
-
-			encoder2 := gob.NewEncoder(gzipWriter2)
-			if err := encoder2.Encode(urlFiles); err != nil {
-				log.Fatalf("Error encoding indexed data: %v", err)
-			}
-
-			if err := gzipWriter2.Close(); err != nil {
-				log.Fatalf("Error closing gzip writer: %v", err)
-			}
-			filename2 := "url-files.gz"
-			if err := os.WriteFile(dirName+"./"+filename2, compressedData2.Bytes(), 0644); err != nil {
-				log.Fatalf("Error writing compressed data to disk: %v", err)
+			err = bm25.CompressAndWriteGzipFile("url-files.gz", urlFiles, dirName)
+			if err != nil {
+				log.Fatal(err)
 			}
 			urlsMutex.Unlock()
+
+			reverseUrlsMutex.Lock()
+			err = bm25.CompressAndWriteGzipFile("reverse-url-files.gz", reverseUrlFiles, dirName)
+			if err != nil {
+				log.Fatal(err)
+			}
+			reverseUrlsMutex.Unlock()
 			elapsed := time.Since(start)
 			log.Printf("\n\033[32m------------------------------------" + util.TerminalReset)
 			fmt.Printf("\033[32mFINISHED CRAWLING %v in %dMs%v\n", fullUrl.Host, elapsed.Milliseconds(), util.TerminalReset)
