@@ -1,3 +1,5 @@
+[![test-ci](https://github.com/DeanRTaylor1/gosearch/actions/workflows/test-ci.yml/badge.svg)](https://github.com/DeanRTaylor1/gosearch/actions/workflows/test-ci.yml)
+
 # GoSearch
 
 GoSearch is a search engine for static websites, implemented in Go. It utilizes the BM25 algorithm to rank search results and provides a simple web interface for user interaction.
@@ -28,7 +30,7 @@ go build -o ./bin/gosearch .
 After building the project, you can run the gosearch binary with the following command:
 
 ```bash
-./gosearch
+./bin/gosearch
 By default, the web server will start on port 8080. Open a web browser and navigate to http://localhost:8080 to use the search interface.
 ```
 
