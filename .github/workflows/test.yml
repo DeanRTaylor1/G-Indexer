@@ -21,6 +21,6 @@ jobs:
           go-version: "1.19.x"
       - name: Install dependencies
         run: |
-          go get .
+          go get ./src
       - name: Test with the Go CLI
         run: go test -v -cover ./...
