@@ -20,7 +20,7 @@ jobs:
         with:
           go-version: "1.16.x"
       - name: Install dependencies
-        run: go get ./src
+        run: go get -d ./...
       - name: Build
         run: go build -v ./src
       - name: Test with the Go CLI
