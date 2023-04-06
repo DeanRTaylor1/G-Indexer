@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"time"
 
 	"os"
 	"strings"
@@ -37,7 +38,7 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 	// Add your web crawling logic here
 	// When you find a new URL, send it to the channel: foundUrls <- newURL
 
-	fmt.Println("initiating get request", urlToCrawl)
+	fmt.Println("initiating get request to ", urlToCrawl)
 	resp, err := http.Get(urlToCrawl)
 
 	if err != nil {
@@ -58,10 +59,6 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	// filename := fullUrl.Path
-
-	// filename = strings.ReplaceAll(filename, "/", "_")
 
 	textContent := lexer.ParseHtmlTextContent(string(body))
 
@@ -99,7 +96,6 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 
 		tf[token] += 1
 	}
-	fmt.Println("Locking model")
 	model.ModelLock.Lock()
 	for token := range tf {
 		model.TermCount += 1
@@ -107,7 +103,6 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 	}
 	model.TFPD[IndexedData.URL] = bm25.ConvertToDocData(tf)
 	model.ModelLock.Unlock()
-	fmt.Println("Unlocking model")
 
 	// extract the links from the file
 	links := lexer.ParseLinks(string(body))
@@ -140,7 +135,7 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 
 func CrawlDomainUpdateModel(domain string, model *bm25.Model) {
 	fmt.Println("crawling domain: ", domain)
-
+	start := time.Now()
 	cachedData := make(map[string]util.IndexedData)
 	visited := make(map[string]bool)
 	urlFiles := make(map[string]string)
@@ -167,8 +162,8 @@ func CrawlDomainUpdateModel(domain string, model *bm25.Model) {
 	}
 
 	// Use a buffered channel to store found URLs
-	foundUrls := make(chan string, 10)
-	errChan := make(chan error, 10)
+	foundUrls := make(chan string, 100)
+	errChan := make(chan error, 100)
 	// Use a WaitGroup to track the number of active goroutines
 	var wg sync.WaitGroup
 
@@ -196,6 +191,9 @@ outerLoop:
 			if numberOfVisitedURLs >= maxURLsToCrawl {
 				fmt.Println("Reached max number of URLs to crawl: ", maxURLsToCrawl)
 				visitedMutex.Unlock()
+				model.ModelLock.Lock()
+				model.IsComplete = true
+				model.ModelLock.Unlock()
 				cachedDataMutex.Lock()
 				var compressedData bytes.Buffer
 				gzipWriter := gzip.NewWriter(&compressedData)
@@ -316,8 +314,9 @@ outerLoop:
 				log.Fatalf("Error writing compressed data to disk: %v", err)
 			}
 			urlsMutex.Unlock()
+			elapsed := time.Since(start)
 			fmt.Println("\033[32m------------------------------------")
-			fmt.Println("\033[32mFINISHED CRAWLING")
+			fmt.Printf("\033[32mFINISHED CRAWLING %v in %dMs\n", dirName, elapsed.Milliseconds())
 			fmt.Println("\033[32m------------------------------------\033[0m")
 			return
 		}

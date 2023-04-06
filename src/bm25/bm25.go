@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/gob"
-	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -253,13 +252,15 @@ func ComputeIDF(t string, N int, df DocFreq) float32 {
 	return float32(math.Log10(n / M))
 }
 
-func ModelToJSON(m Model, createFile bool, filename string) string {
-	b, err := json.Marshal(m)
-	if err != nil {
-		fmt.Println("error:", err)
-	}
-	if createFile {
-		util.JSONToFile(b, filename)
-	}
-	return string(b)
-}
+// type FileWriter func([]byte, string)
+
+// func ModelToJSON(m Model, createFile bool, filename string, fileWriter FileWriter) string {
+// 	b, err := json.Marshal(m)
+// 	if err != nil {
+// 		fmt.Println("error:", err)
+// 	}
+// 	if createFile {
+// 		fileWriter(b, filename)
+// 	}
+// 	return string(b)
+// }

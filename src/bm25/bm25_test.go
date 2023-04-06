@@ -10,22 +10,22 @@ func TestNewEmptyModel(t *testing.T) {
 
 	if model == nil {
 		t.Errorf("NewEmptyModel() == nil, want non-nil")
-	}
+	} else {
+		if model.TFPD == nil {
+			t.Errorf("NewEmptyModel().TFPD == nil, want non-nil")
+		}
 
-	if model.TFPD == nil {
-		t.Errorf("NewEmptyModel().TFPD == nil, want non-nil")
-	}
+		if model.DF == nil {
+			t.Errorf("NewEmptyModel().DF == nil, want non-nil")
+		}
 
-	if model.DF == nil {
-		t.Errorf("NewEmptyModel().DF == nil, want non-nil")
-	}
+		if model.UrlFiles == nil {
+			t.Errorf("NewEmptyModel().UrlFiles == nil, want non-nil")
+		}
 
-	if model.UrlFiles == nil {
-		t.Errorf("NewEmptyModel().UrlFiles == nil, want non-nil")
-	}
-
-	if model.ModelLock == nil {
-		t.Errorf("NewEmptyModel().ModelLock == nil, want non-nil")
+		if model.ModelLock == nil {
+			t.Errorf("NewEmptyModel().ModelLock == nil, want non-nil")
+		}
 	}
 }
 
@@ -184,6 +184,7 @@ func TestComputeIDF(t *testing.T) {
 			term:          "apple",
 			expectedValue: 0.952318, // calculated manually
 		},
+
 		// Add more test cases here
 	}
 

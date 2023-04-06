@@ -1,10 +1,8 @@
 package lexer
 
 import (
-	"encoding/xml"
 	"errors"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"unicode"
@@ -111,52 +109,52 @@ func ParseLinks(htmlContent string) []string {
 /*return*/
 /*}*/
 
-func ReadEntireXMLFile(filePath string) string {
-	f, err := os.Open(filePath)
-	if err != nil {
-		panic(err)
-	}
+// func ReadEntireXMLFile(filePath string) string {
+// 	f, err := os.Open(filePath)
+// 	if err != nil {
+// 		panic(err)
+// 	}
 
-	defer f.Close()
+// 	defer f.Close()
 
-	var content string
+// 	var content string
 
-	d := xml.NewDecoder(f)
-	for {
-		t, err := d.Token()
-		if err != nil {
-			break
-		}
+// 	d := xml.NewDecoder(f)
+// 	for {
+// 		t, err := d.Token()
+// 		if err != nil {
+// 			break
+// 		}
 
-		switch se := t.(type) {
-		case xml.CharData:
-			content += string(se)
-		}
-	}
-	return content
-}
+// 		switch se := t.(type) {
+// 		case xml.CharData:
+// 			content += string(se)
+// 		}
+// 	}
+// 	return content
+// }
 
-func ReadEntireHTMLFile(filePath string) string {
-	f, err := os.Open(filePath)
-	if err != nil {
-		panic(err)
-	}
+// func ReadEntireHTMLFile(filePath string) string {
+// 	f, err := os.Open(filePath)
+// 	if err != nil {
+// 		panic(err)
+// 	}
 
-	defer f.Close()
+// 	defer f.Close()
 
-	var content string
+// 	var content string
 
-	d := html.NewTokenizer(f)
-	for {
-		tt := d.Next()
-		switch tt {
-		case html.ErrorToken:
-			return content
-		case html.TextToken:
-			content += string(d.Text())
-		}
-	}
-}
+// 	d := html.NewTokenizer(f)
+// 	for {
+// 		tt := d.Next()
+// 		switch tt {
+// 		case html.ErrorToken:
+// 			return content
+// 		case html.TextToken:
+// 			content += string(d.Text())
+// 		}
+// 	}
+// }
 
 func ParseHtmlTextContent(htmlContent string) string {
 	var content string
@@ -184,15 +182,15 @@ func MapToSortedSlice(m map[string]int) (stats []stat) {
 	return stats
 }
 
-func LogStats(filePath string, stats []stat, topN int) {
-	fmt.Println(filePath)
-	if len(stats) < topN {
-		for _, v := range stats {
-			fmt.Println(v.token, " => ", v.freq)
-		}
-	} else {
-		for _, v := range stats[:topN] {
-			fmt.Println(v.token, " => ", v.freq)
-		}
-	}
-}
+// func LogStats(filePath string, stats []stat, topN int) {
+// 	fmt.Println(filePath)
+// 	if len(stats) < topN {
+// 		for _, v := range stats {
+// 			fmt.Println(v.token, " => ", v.freq)
+// 		}
+// 	} else {
+// 		for _, v := range stats[:topN] {
+// 			fmt.Println(v.token, " => ", v.freq)
+// 		}
+// 	}
+// }
