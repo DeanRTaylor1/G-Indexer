@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/deanrtaylor1/gosearch/src/lexer"
-	"github.com/deanrtaylor1/gosearch/src/util"
+	"github.com/deanrtaylor1/gosearch/lexer"
+	"github.com/deanrtaylor1/gosearch/util"
 )
 
 const (
@@ -175,6 +175,7 @@ func readCompressedFilesToModel(dirPath string, fileName string, model *Model) {
 }
 
 func LoadCachedGobToModel(dirPath string, model *Model) {
+	fmt.Println(dirPath)
 	dir, err := os.Open(dirPath)
 	if err != nil {
 		log.Fatal(err)

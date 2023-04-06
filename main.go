@@ -8,9 +8,9 @@ import (
 
 	"os"
 
-	"github.com/deanrtaylor1/gosearch/src/bm25"
-	"github.com/deanrtaylor1/gosearch/src/server"
-	"github.com/deanrtaylor1/gosearch/src/util"
+	"github.com/deanrtaylor1/gosearch/bm25"
+	"github.com/deanrtaylor1/gosearch/server"
+	"github.com/deanrtaylor1/gosearch/util"
 )
 
 func help() {
@@ -72,7 +72,7 @@ func main() {
 			fmt.Println("Starting server and indexing directory: ", selectedDirectory)
 			model.Name = selectedDirectory
 			go func() {
-				bm25.LoadCachedGobToModel("./"+selectedDirectory, model)
+				bm25.LoadCachedGobToModel("./indexes/"+selectedDirectory, model)
 				model.ModelLock.Lock()
 				model.DA = float32(model.TermCount) / float32(model.DocCount)
 				model.IsComplete = true

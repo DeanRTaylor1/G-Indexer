@@ -64,7 +64,7 @@ func MapToJSONGeneric(m map[string]interface{}, createFile bool, filename string
 }
 
 func SelectDirectory() string {
-	files, err := os.ReadDir(".")
+	files, err := os.ReadDir("./indexes")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func SelectDirectory() string {
 }
 
 func GetCurrentAvailableModelDirectories() []string {
-	files, err := os.ReadDir(".")
+	files, err := os.ReadDir("./indexes")
 	if err != nil {
 		log.Fatal(err)
 	}

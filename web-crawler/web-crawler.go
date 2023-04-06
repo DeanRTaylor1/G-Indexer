@@ -16,9 +16,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/deanrtaylor1/gosearch/src/bm25"
-	"github.com/deanrtaylor1/gosearch/src/lexer"
-	"github.com/deanrtaylor1/gosearch/src/util"
+	"github.com/deanrtaylor1/gosearch/bm25"
+	"github.com/deanrtaylor1/gosearch/lexer"
+	"github.com/deanrtaylor1/gosearch/util"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -148,12 +148,12 @@ func CrawlDomainUpdateModel(domain string, model *bm25.Model) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	dirName := fullUrl.Host
+	dirName := fmt.Sprint("indexes/" + fullUrl.Host)
 	fmt.Println("creating dir", dirName)
 
 	err = os.MkdirAll(dirName, os.ModePerm)
 	model.ModelLock.Lock()
-	model.Name = dirName
+	model.Name = fullUrl.Host
 	model.ModelLock.Unlock()
 
 	if err != nil {
@@ -316,7 +316,7 @@ outerLoop:
 			urlsMutex.Unlock()
 			elapsed := time.Since(start)
 			fmt.Println("\033[32m------------------------------------")
-			fmt.Printf("\033[32mFINISHED CRAWLING %v in %dMs\n", dirName, elapsed.Milliseconds())
+			fmt.Printf("\033[32mFINISHED CRAWLING %v in %dMs\n", fullUrl.Host, elapsed.Milliseconds())
 			fmt.Println("\033[32m------------------------------------\033[0m")
 			return
 		}

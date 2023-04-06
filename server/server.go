@@ -1,7 +1,6 @@
 package server
 
 import (
-	"embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,11 +10,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/deanrtaylor1/gosearch/src/bm25"
-	"github.com/deanrtaylor1/gosearch/src/lexer"
-	"github.com/deanrtaylor1/gosearch/src/tfidf"
-	"github.com/deanrtaylor1/gosearch/src/util"
-	webcrawler "github.com/deanrtaylor1/gosearch/src/web-crawler"
+	"github.com/deanrtaylor1/gosearch/bm25"
+	"github.com/deanrtaylor1/gosearch/lexer"
+	"github.com/deanrtaylor1/gosearch/tfidf"
+	"github.com/deanrtaylor1/gosearch/util"
+	webcrawler "github.com/deanrtaylor1/gosearch/web-crawler"
 
 	"github.com/tebeka/snowball"
 )
@@ -224,7 +223,14 @@ func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) 
 
 	}
 
-	for i := 0; i < 20; i++ {
+	var max int
+	if len(result) < 20 {
+		max = len(result)
+	} else {
+		max = 20
+	}
+
+	for i := 0; i < max; i++ {
 		fmt.Println(result[i].Path, " => ", result[i].TF)
 	}
 
@@ -253,7 +259,7 @@ func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) 
 
 		}
 
-		for i := 0; i < 20; i++ {
+		for i := 0; i < max; i++ {
 			fmt.Println(result2[i].Path, " => ", result2[i].TF)
 		}
 
@@ -268,10 +274,10 @@ func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) 
 				TF:   0,
 			}}
 		} else {
-			data = filterResults(result2[:20], isGreaterThanZero)
+			data = filterResults(result2[:max], isGreaterThanZero)
 		}
 	} else {
-		data = filterResults(result[:20], isGreaterThanZero)
+		data = filterResults(result[:max], isGreaterThanZero)
 	}
 
 	elapsed := time.Since(start)
@@ -320,13 +326,14 @@ func handleApiIndexes(w http.ResponseWriter, r *http.Request, model *bm25.Model)
 }
 
 func handleApiIndex(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
+	fmt.Println("received")
 	requestBodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	fmt.Println(string(requestBodyBytes))
-	if isValid, err := util.CheckDirIsValid(string(requestBodyBytes)); !isValid {
+	if isValid, err := util.CheckDirIsValid("./indexes/" + string(requestBodyBytes)); !isValid {
 		if err != nil {
 			log.Println(err)
 		}
@@ -344,13 +351,14 @@ func handleApiIndex(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 		}
 		return
 	}
+	fmt.Println("received number 2")
 
 	bm25.ResetModel(model)
 
-	fmt.Println("Starting server and indexing directory: ", requestBodyBytes)
+	fmt.Println("Starting server and indexing directory: ", "./indexes/", requestBodyBytes)
 	model.Name = string(requestBodyBytes)
 	go func() {
-		bm25.LoadCachedGobToModel("./"+string(requestBodyBytes), model)
+		bm25.LoadCachedGobToModel("./indexes/"+string(requestBodyBytes), model)
 		model.ModelLock.Lock()
 		model.DA = float32(model.TermCount) / float32(model.DocCount)
 		model.IsComplete = true
@@ -370,25 +378,20 @@ func handleApiIndex(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 	}
 }
 
-//go:embed static
-var staticFiles embed.FS
-
 func handleRequests(model *bm25.Model) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(r.Method, r.URL.Path)
 		switch {
 		case r.Method == "GET" && r.URL.Path == "/":
-			http.Redirect(w, r, "/static/index.html", http.StatusSeeOther)
+			http.ServeFile(w, r, "static/index.html")
 		case r.Method == "GET" && r.URL.Path == "/favicon.ico":
-			http.Redirect(w, r, "/static/favicon.ico", http.StatusSeeOther)
-		case r.Method == "GET" && r.URL.Path == "/static/":
-			http.ServeFile(w, r, "src/static/index.html")
-		case r.Method == "GET" && r.URL.Path == "/static/styles.css":
-			http.FileServer(http.FS(staticFiles)).ServeHTTP(w, r)
-		case r.Method == "GET" && r.URL.Path == "/static/favicon.ico":
-			http.FileServer(http.FS(staticFiles)).ServeHTTP(w, r)
-		case r.Method == "GET" && r.URL.Path == "/static/index.js":
-			http.FileServer(http.FS(staticFiles)).ServeHTTP(w, r)
+			http.ServeFile(w, r, "static/favicon.ico")
+		case r.Method == "GET" && r.URL.Path == "/index.html":
+			http.ServeFile(w, r, "static/index.html")
+		case r.Method == "GET" && r.URL.Path == "/styles.css":
+			http.ServeFile(w, r, "static/styles.css")
+		case r.Method == "GET" && r.URL.Path == "/index.js":
+			http.ServeFile(w, r, "static/index.js")
 		case r.Method == "GET" && r.URL.Path == "/api/indexes":
 			handleApiIndexes(w, r, model)
 		case r.Method == "GET" && r.URL.Path == "/api/progress":

@@ -90,7 +90,7 @@ func TestResetModel(t *testing.T) {
 func TestReadUrlFiles(t *testing.T) {
 	model := NewEmptyModel()
 
-	readUrlFiles("../../javascript.info", "url-files.gz", model)
+	readUrlFiles("../indexes/javascript.info", "url-files.gz", model)
 
 	if len(model.UrlFiles) == 0 {
 		t.Errorf("ReadUrlFiles() == 0, want non-zero")
@@ -101,7 +101,7 @@ func TestReadUrlFiles(t *testing.T) {
 func TestReadCompressedFilesToModel(t *testing.T) {
 	model := NewEmptyModel()
 
-	readCompressedFilesToModel("../../javascript.info", "indexed-data.gz", model)
+	readCompressedFilesToModel("../indexes/javascript.info", "indexed-data.gz", model)
 
 	if len(model.TFPD) == 0 {
 		t.Errorf("ReadCompressedFilesToModel() == 0, want non-zero")
@@ -120,7 +120,7 @@ func TestReadCompressedFilesToModel(t *testing.T) {
 func TestLoadCachedGobToModel(t *testing.T) {
 	model := NewEmptyModel()
 
-	LoadCachedGobToModel("../../javascript.info", model)
+	LoadCachedGobToModel("../indexes/javascript.info", model)
 
 	if len(model.TFPD) == 0 {
 		t.Errorf("LoadCachedGobToModel() == 0, want non-zero")
