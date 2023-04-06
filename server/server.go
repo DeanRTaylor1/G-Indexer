@@ -7,11 +7,9 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"sort"
 	"time"
 
 	"github.com/deanrtaylor1/gosearch/bm25"
-	"github.com/deanrtaylor1/gosearch/lexer"
 	"github.com/deanrtaylor1/gosearch/tfidf"
 	"github.com/deanrtaylor1/gosearch/util"
 	webcrawler "github.com/deanrtaylor1/gosearch/web-crawler"
@@ -19,15 +17,9 @@ import (
 	"github.com/tebeka/snowball"
 )
 
-type resultsMap struct {
-	Name string  `json:"name"`
-	Path string  `json:"path"`
-	TF   float32 `json:"tf"`
-}
-
 type Response struct {
-	Message string       `json:"Message"`
-	Data    []resultsMap `json:"Data"`
+	Message string            `json:"Message"`
+	Data    []bm25.ResultsMap `json:"Data"`
 }
 
 type IndexResponse struct {
@@ -48,20 +40,6 @@ type ProgressResponse struct {
 type ProgressResponseData struct {
 	Name  string      `json:"data_name"`
 	Value interface{} `json:"data_value"`
-}
-
-func isGreaterThanZero(value float32) bool {
-	return value > 0
-}
-
-func filterResults(results []resultsMap, filter func(float32) bool) []resultsMap {
-	var filteredResults []resultsMap
-	for _, result := range results {
-		if filter(result.TF) {
-			filteredResults = append(filteredResults, result)
-		}
-	}
-	return filteredResults
 }
 
 func handleApiCrawl(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
@@ -194,30 +172,9 @@ func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) 
 		return
 	}
 	log.Println(string(requestBodyBytes))
-	var result []resultsMap
 
-	count := 0
-	model.ModelLock.Lock()
-	defer model.ModelLock.Unlock()
-
-	for path, table := range model.TFPD {
-		//log.Println(path)
-		querylexer := lexer.NewLexer(string(requestBodyBytes))
-		var rank float32 = 0
-		for {
-			token, err := querylexer.Next()
-			if err != nil {
-				break
-			}
-			rank += bm25.ComputeTF(token, table.TermCount, table.Terms, model.DA) * bm25.ComputeIDF(token, len(model.TFPD), model.DF)
-			count += 1
-		}
-		result = append(result, resultsMap{model.UrlFiles[path], path, rank})
-		sort.Slice(result, func(i, j int) bool {
-			return result[i].TF > result[j].TF
-		})
-
-	}
+	var count int
+	result, count := bm25.CalculateBm25(model, string(requestBodyBytes))
 
 	var max int
 	if len(result) < 20 {
@@ -226,54 +183,35 @@ func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) 
 		max = 20
 	}
 
-	// for i := 0; i < max; i++ {
-	// 	log.Println(result[i].Path, " => ", result[i].TF)
-	// }
+	for i := 0; i < max; i++ {
+		log.Println(result[i].Path, " => ", result[i].TF)
+	}
 
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	var result2 []resultsMap
+
 	if result[0].TF == 0 {
 		log.Println("Query too generic, ranking with tf-idf")
-		for path, table := range model.TFPD {
-			querylexer := lexer.NewLexer(string(requestBodyBytes))
-			var rank float32 = 0
-			for {
-				token, err := querylexer.Next()
-				if err != nil {
-					break
-				}
-				rank += tfidf.ComputeTF(token, table.TermCount, tfidf.TermFreq(table.Terms)) * tfidf.ComputeIDF(token, len(model.TFPD), model.DF)
-				count += 1
-			}
-			result2 = append(result2, resultsMap{model.UrlFiles[path], path, rank})
-			sort.Slice(result2, func(i, j int) bool {
-				return result2[i].TF > result2[j].TF
-			})
 
+		result, count = tfidf.CalculateTfidf(model, string(requestBodyBytes))
+
+		for i := 0; i < max; i++ {
+			log.Println(result[i].Path, " => ", result[i].TF)
 		}
-
-		// for i := 0; i < max; i++ {
-		// 	log.Println(result2[i].Path, " => ", result2[i].TF)
-		// }
 
 	}
-	//log.Println(result2)
 
-	var data []resultsMap
-	if result2 != nil {
-		if result2[0].TF == 0 {
-			data = []resultsMap{{
-				Path: "No results found",
-				TF:   0,
-			}}
-		} else {
-			data = filterResults(result2[:max], isGreaterThanZero)
-		}
+	var data []bm25.ResultsMap
+
+	if result[0].TF == 0 {
+		data = []bm25.ResultsMap{{
+			Path: "No results found",
+			TF:   0,
+		}}
 	} else {
-		data = filterResults(result[:max], isGreaterThanZero)
+		data = bm25.FilterResults(result[:max], bm25.IsGreaterThanZero)
 	}
 
 	elapsed := time.Since(start)

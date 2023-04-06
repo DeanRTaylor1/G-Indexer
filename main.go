@@ -8,11 +8,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"os"
 
 	"github.com/deanrtaylor1/gosearch/bm25"
+	"github.com/deanrtaylor1/gosearch/cli"
 	"github.com/deanrtaylor1/gosearch/server"
 	"github.com/deanrtaylor1/gosearch/util"
 )
@@ -20,7 +20,7 @@ import (
 func help() {
 	fmt.Println("GoSearch - A simple search engine written in Go")
 	fmt.Println("Author: Dean Taylor")
-	fmt.Println("Version: 0.1")
+	fmt.Println("Version: 0.2")
 	fmt.Println("License: MIT")
 	fmt.Println("default start: gosearch.exe launches search engine and crawler on localhost:8080")
 
@@ -28,7 +28,7 @@ func help() {
 	fmt.Println("----------------------------------")
 	fmt.Println("Subcommands:")
 	fmt.Println("    cli:                            start server with cli interface")
-	fmt.Println("    help:                            list all commands")
+	fmt.Println("    help:                           list all commands")
 
 }
 
@@ -101,21 +101,21 @@ func downloadStaticDir() error {
 }
 
 func main() {
-	files, err := os.ReadDir("./static")
-	if err != nil || len(files) != 4 {
-		log.Println(err)
-		err := downloadStaticDir()
-		if err != nil {
-			fmt.Printf("Error downloading the static directory: %v\n", err)
-			fmt.Println("Please make sure you have write permissions in the current directory.")
-		}
-	}
 	if len(os.Args) < 1 {
 		help()
 		os.Exit(1)
 	}
 	args := os.Args[1:]
 	if len(args) < 1 {
+		files, err := os.ReadDir("./static")
+		if err != nil || len(files) != 4 {
+			log.Println(err)
+			err := downloadStaticDir()
+			if err != nil {
+				fmt.Printf("Error downloading the static directory: %v\n", err)
+				fmt.Println("Please make sure you have write permissions in the current directory.")
+			}
+		}
 		fmt.Println(util.TerminalCyan + "Initializing server with empty model" + util.TerminalReset)
 		model := bm25.NewEmptyModel()
 		openBrowser()
@@ -125,29 +125,28 @@ func main() {
 
 	switch program {
 	case "cli":
-
-		selectedDirectory := strings.Replace(util.SelectDirectory(), "○ ", "", -1)
-		fmt.Printf("Selected directory: %s\n", selectedDirectory)
-
 		model := bm25.NewEmptyModel()
-		if selectedDirectory == "Start server" {
-			fmt.Println("Starting server with no Index")
+		cli.InitialPrompt(model)
 
-		} else {
-			fmt.Println("Starting server and indexing directory: ", selectedDirectory)
-			model.Name = selectedDirectory
-			go func() {
-				bm25.LoadCachedGobToModel("./indexes/"+selectedDirectory, model)
-				model.ModelLock.Lock()
-				model.DA = float32(model.TermCount) / float32(model.DocCount)
-				model.IsComplete = true
-				model.ModelLock.Unlock()
-			}()
+		// model := bm25.NewEmptyModel()
+		// if selectedDirectory == "Start server" {
+		// 	fmt.Println("Starting server with no Index")
 
-		}
-		server.Serve(model)
+		// } else {
+		// 	fmt.Println("Starting server and indexing directory: ", selectedDirectory)
+		// 	model.Name = selectedDirectory
+		// 	go func() {
+		// 		bm25.LoadCachedGobToModel("./indexes/"+selectedDirectory, model)
+		// 		model.ModelLock.Lock()
+		// 		model.DA = float32(model.TermCount) / float32(model.DocCount)
+		// 		model.IsComplete = true
+		// 		model.ModelLock.Unlock()
+		// 	}()
 
-	case "-help":
+		// }
+		// server.Serve(model)
+
+	case "--help":
 		help()
 
 	default:

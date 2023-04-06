@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/gob"
+	"fmt"
 	"log"
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 
 	"github.com/deanrtaylor1/gosearch/lexer"
@@ -34,13 +36,67 @@ type Model struct {
 	//DF is the Document Frequency of a term
 	DF DocFreq
 	//DA is the average document length
-	DA         float32
-	TermCount  int
-	DocCount   int
-	DirLength  float32
-	UrlFiles   map[string]string
-	ModelLock  *sync.Mutex
-	IsComplete bool
+	DA              float32
+	TermCount       int
+	DocCount        int
+	DirLength       float32
+	UrlFiles        map[string]string
+	ReverseUrlFiles map[string]string
+	ModelLock       *sync.Mutex
+	IsComplete      bool
+}
+
+type ResultsMap struct {
+	Name string  `json:"name"`
+	Path string  `json:"path"`
+	TF   float32 `json:"tf"`
+}
+
+func FilterResults(results []ResultsMap, filter func(float32) bool) []ResultsMap {
+	var filteredResults []ResultsMap
+	for _, result := range results {
+		if filter(result.TF) {
+			filteredResults = append(filteredResults, result)
+		}
+	}
+	return filteredResults
+}
+
+func ResetResultsMap(result []ResultsMap) []ResultsMap {
+
+	for i := range result {
+		result[i] = ResultsMap{}
+	}
+	return result
+
+}
+
+func CalculateBm25(model *Model, query string) ([]ResultsMap, int) {
+	var result []ResultsMap
+
+	count := 0
+	model.ModelLock.Lock()
+	defer model.ModelLock.Unlock()
+
+	for path, table := range model.TFPD {
+		//log.Println(path)
+		querylexer := lexer.NewLexer(string(query))
+		var rank float32 = 0
+		for {
+			token, err := querylexer.Next()
+			if err != nil {
+				break
+			}
+			rank += ComputeTF(token, table.TermCount, table.Terms, model.DA) * ComputeIDF(token, len(model.TFPD), model.DF)
+			count += 1
+		}
+		result = append(result, ResultsMap{model.UrlFiles[path], path, rank})
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].TF > result[j].TF
+		})
+
+	}
+	return result, count
 }
 
 func ResetModel(model *Model) {
@@ -49,6 +105,7 @@ func ResetModel(model *Model) {
 	model.TFPD = make(map[string]DocData)
 	model.DF = make(map[string]int)
 	model.UrlFiles = make(map[string]string)
+	model.ReverseUrlFiles = make(map[string]string)
 	model.DocCount = 0
 	model.TermCount = 0
 	model.DirLength = 0
@@ -59,11 +116,36 @@ func ResetModel(model *Model) {
 
 func NewEmptyModel() *Model {
 	return &Model{
-		TFPD:      make(map[string]DocData),
-		DF:        make(map[string]int),
-		UrlFiles:  make(map[string]string),
-		ModelLock: &sync.Mutex{},
+		TFPD:            make(map[string]DocData),
+		DF:              make(map[string]int),
+		UrlFiles:        make(map[string]string),
+		ReverseUrlFiles: make(map[string]string),
+		ModelLock:       &sync.Mutex{},
 	}
+}
+
+func CompressAndWriteGzipFile(fileName string, data interface{}, dirName string) error {
+	var compressedData bytes.Buffer
+	gzipWriter := gzip.NewWriter(&compressedData)
+
+	encoder := gob.NewEncoder(gzipWriter)
+	if err := encoder.Encode(data); err != nil {
+		return fmt.Errorf("error encoding indexed data: %v", err)
+	}
+
+	if err := gzipWriter.Close(); err != nil {
+		return fmt.Errorf("error closing gzip writer: %v", err)
+	}
+
+	if err := os.WriteFile(dirName+"./"+fileName, compressedData.Bytes(), 0644); err != nil {
+		return fmt.Errorf("error writing compressed data to disk: %v", err)
+	}
+
+	return nil
+}
+
+func IsGreaterThanZero(value float32) bool {
+	return value > 0
 }
 
 // func getFileUrl(filePath string) (string, error) {
@@ -107,7 +189,35 @@ func readUrlFiles(dirPath string, fileName string, model *Model) {
 	model.UrlFiles = decompressedURLFiles
 
 	model.ModelLock.Unlock()
-	log.Println("\033[32mmapped urls\033[0m")
+	//log.Println("\033[32mmapped urls\033[0m")
+}
+
+func readReverseUrlFiles(dirPath string, fileName string, model *Model) {
+	compressedData, err := os.ReadFile(dirPath + "/" + fileName)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	gzipReader, err := gzip.NewReader(bytes.NewReader(compressedData))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	model.ModelLock.Lock()
+
+	decoder := gob.NewDecoder(gzipReader)
+	gzipReader.Close()
+	var decompressedURLFiles map[string]string
+	if err := decoder.Decode(&decompressedURLFiles); err != nil {
+		log.Println(err)
+		return
+	}
+	model.ReverseUrlFiles = decompressedURLFiles
+
+	model.ModelLock.Unlock()
+	//log.Println("\033[32mmapped reverse urls\033[0m")
 }
 
 func readCompressedFilesToModel(dirPath string, fileName string, model *Model) {
@@ -142,9 +252,9 @@ func readCompressedFilesToModel(dirPath string, fileName string, model *Model) {
 		content := v.Content
 		//log.Println(filePath, content)
 
-		fileSize := len(content)
+		//fileSize := len(content)
 
-		log.Println(filePath, " => ", fileSize)
+		//log.Println(filePath, " => ", fileSize)
 		tf := make(TermFreq)
 
 		lexer := lexer.NewLexer(content)
@@ -174,7 +284,7 @@ func readCompressedFilesToModel(dirPath string, fileName string, model *Model) {
 }
 
 func LoadCachedGobToModel(dirPath string, model *Model) {
-	log.Println(dirPath)
+	//log.Println(dirPath)
 	dir, err := os.Open(dirPath)
 	if err != nil {
 		log.Fatal(err)
@@ -187,21 +297,29 @@ func LoadCachedGobToModel(dirPath string, model *Model) {
 	}
 
 	for _, fi := range fileInfos {
+		done := map[string]bool{}
 		if fi.Name() == "url-files.gz" {
 			readUrlFiles(dirPath, fi.Name(), model)
+			done[fi.Name()] = true
+		}
+		if fi.Name() == "reverse-url-files.gz" {
+			readReverseUrlFiles(dirPath, fi.Name(), model)
+			done[fi.Name()] = true
+		}
+		if done["url-files.gz"] && done["reverse-url-files.gz"] {
 			break
 		}
 	}
 
 	for _, fi := range fileInfos {
-		if filepath.Ext(fi.Name()) == ".gz" && fi.Name() != "url-files.gz" {
+		if filepath.Ext(fi.Name()) == ".gz" && fi.Name() != "url-files.gz" && fi.Name() != "reverse-url-files.gz" {
 			readCompressedFilesToModel(dirPath, fi.Name(), model)
 			continue
 		}
 	}
-	log.Println("------------------")
-	log.Println(util.TerminalGreen + "FINISHED LOADING MODEL" + util.TerminalReset)
-	log.Println("------------------")
+	// log.Println("------------------")
+	// log.Println(util.TerminalGreen + "FINISHED LOADING MODEL" + util.TerminalReset)
+	// log.Println("------------------")
 }
 
 func ConvertToDocData(tf TermFreq) DocData {
