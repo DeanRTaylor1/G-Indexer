@@ -10,17 +10,18 @@ on:
     branches: ["main"]
 
 jobs:
-  test:
-    name: Test
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Setup Go
+
+      - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: "1.19.x"
-      - name: Install dependencies
-        run: |
-          go get ./src
-      - name: Test with the Go CLI
-        run: go test -v -cover ./...
+          go-version: 1.19
+
+      - name: Build
+        run: go build -v ./src
+
+      - name: Test
+        run: go test -v ./...
