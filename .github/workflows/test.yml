@@ -12,17 +12,16 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
-
-      - name: Set up Go
+      - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: 1.19
-
+          go-version: "1.16.x"
+      - name: Install dependencies
+        run: go get ./src
       - name: Build
         run: go build -v ./src
-
-      - name: Test
-        run: go test -v ./...
-#test
+      - name: Test with the Go CLI
+        run: go test -v -cover ./...
