@@ -1,4 +1,5 @@
 [![test-ci](https://github.com/DeanRTaylor1/gosearch/actions/workflows/test-ci.yml/badge.svg)](https://github.com/DeanRTaylor1/gosearch/actions/workflows/test-ci.yml)
+![Coverage](https://img.shields.io/badge/coverage-86.7%25-brightgreen)
 
 # GoSearch
 
