@@ -3,6 +3,7 @@ package bm25
 import (
 	"math"
 	"os"
+	"path"
 	"testing"
 )
 
@@ -34,7 +35,7 @@ func TestCompressAndWriteGZipFile(t *testing.T) { // Prepare test data
 	}
 
 	// Check if the file exists
-	filePath := dirName + "/" + fileName
+	filePath := path.Join(dirName, fileName)
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		t.Fatalf("File %s does not exist", filePath)
 	}
@@ -48,26 +49,26 @@ func TestCompressAndWriteGZipFile(t *testing.T) { // Prepare test data
 		t.Fatalf("Failed to remove temporary directory: %v", err)
 	}
 
-	// fileOpsNoImpl := FileOpsNoOp{}
+	fileOpsNoImpl := FileOpsNoOp{}
 
-	// if err := fileOpsNoImpl.MkdirAll(dirName, 0755); err != nil {
-	// 	t.Fatalf("Error should be nil as this is a mocking DI: %v", err)
-	// }
-	// fileOpsNoImpl.CompressAndWriteGzipFile(fileName, data, dirName)
-	// // Check if the file exists
-	// filePath = dirName + "/" + fileName
-	// if _, err := os.Stat(filePath); !os.IsNotExist(err) {
-	// 	t.Fatalf("File %s does not exist", filePath)
-	// }
+	if err := fileOpsNoImpl.MkdirAll(dirName, 0755); err != nil {
+		t.Fatalf("Error should be nil as this is a mocking DI: %v", err)
+	}
+	fileOpsNoImpl.CompressAndWriteGzipFile(fileName, data, dirName)
+	// Check if the file exists
 
-	// // Clean up: remove the file and the temporary directory
-	// if err := os.Remove(filePath); err == nil {
-	// 	t.Fatalf("Expected error when removing non-existent temporary file: %v", err)
-	// }
+	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+		t.Fatalf("File %s does not exist", filePath)
+	}
 
-	// if err := os.Remove(dirName); err == nil {
-	// 	t.Fatalf("Expected error when removing temporary directory: %v", err)
-	// }
+	// Clean up: remove the file and the temporary directory
+	if err := os.Remove(filePath); err == nil {
+		t.Fatalf("Expected error when removing non-existent temporary file: %v", err)
+	}
+
+	if err := os.Remove(dirName); err == nil {
+		t.Fatalf("Expected error when removing temporary directory: %v", err)
+	}
 
 }
 

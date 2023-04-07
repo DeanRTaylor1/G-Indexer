@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -193,7 +194,7 @@ func CompressAndWriteGzipFile(fileName string, data interface{}, dirName string)
 		return fmt.Errorf("error closing gzip writer: %v", err)
 	}
 
-	if err := os.WriteFile(dirName+"./"+fileName, compressedData.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(path.Join(dirName, fileName), compressedData.Bytes(), 0644); err != nil {
 		return fmt.Errorf("error writing compressed data to disk: %v", err)
 	}
 
