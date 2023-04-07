@@ -90,7 +90,7 @@ func TestResetModel(t *testing.T) {
 func TestReadUrlFiles(t *testing.T) {
 	model := NewEmptyModel()
 
-	readUrlFiles("../test-data/javascript.info", "url-files.gz", model)
+	readUrlFiles("../test-data/javascript.info", "url-files.gz", model, false)
 
 	if len(model.UrlFiles) == 0 {
 		t.Errorf("ReadUrlFiles() == 0, want non-zero")

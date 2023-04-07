@@ -272,7 +272,7 @@ func InitCrawl(domain string, model *bm25.Model) {
 
 	go func() {
 		logStatus(true, true, model)
-		webcrawler.CrawlDomainUpdateModel(domain, model)
+		webcrawler.CrawlDomainUpdateModel(domain, model, bm25.FileOpsImpl{}, 10000)
 		model.ModelLock.Lock()
 		model.Name = fullUrl.Host
 		model.DA = float32(model.TermCount) / float32(model.DocCount)
