@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/deanrtaylor1/gosearch/lexer"
+	"github.com/deanrtaylor1/gosearch/logger"
 	"github.com/deanrtaylor1/gosearch/util"
 )
 
@@ -50,6 +51,33 @@ type ResultsMap struct {
 	Name string  `json:"name"`
 	Path string  `json:"path"`
 	TF   float32 `json:"tf"`
+}
+
+func ConvertContentToModel(content string, path string, model *Model) {
+	tf := make(TermFreq)
+
+	lexer := lexer.NewLexer(content)
+	model.ModelLock.Lock()
+	defer model.ModelLock.Unlock()
+	for {
+		token, err := lexer.Next()
+		if err != nil {
+			//log.Println("EOF")
+			break
+		}
+
+		tf[token] += 1
+		//stats := mapToSortedSlice(tf)
+		//log.Println(filePath, " => ", token, " => ", tf[token])
+	}
+
+	for token := range tf {
+		model.TermCount += 1
+		model.DF[token] += 1
+	}
+
+	model.TFPD[path] = ConvertToDocData(tf)
+
 }
 
 func FilterResults(results []ResultsMap, filter func(float32) bool) []ResultsMap {
@@ -255,31 +283,7 @@ func readCompressedFilesToModel(dirPath string, fileName string, model *Model) {
 		//fileSize := len(content)
 
 		//log.Println(filePath, " => ", fileSize)
-		tf := make(TermFreq)
-
-		lexer := lexer.NewLexer(content)
-		for {
-			token, err := lexer.Next()
-			if err != nil {
-				//log.Println("EOF")
-				break
-			}
-
-			tf[token] += 1
-			//stats := mapToSortedSlice(tf)
-			//log.Println(filePath, " => ", token, " => ", tf[token])
-		}
-		model.ModelLock.Lock()
-		for token := range tf {
-			model.TermCount += 1
-			model.DF[token] += 1
-		}
-		model.ModelLock.Unlock()
-
-		model.ModelLock.Lock()
-
-		model.TFPD[filePath] = ConvertToDocData(tf)
-		model.ModelLock.Unlock()
+		ConvertContentToModel(content, filePath, model)
 	}
 }
 
@@ -317,9 +321,7 @@ func LoadCachedGobToModel(dirPath string, model *Model) {
 			continue
 		}
 	}
-	// log.Println("------------------")
-	// log.Println(util.TerminalGreen + "FINISHED LOADING MODEL" + util.TerminalReset)
-	// log.Println("------------------")
+	logger.HandleLog(fmt.Sprintf("\n------------------\n%sFINISHED LOADING MODEL%s\n------------------\n", util.TerminalGreen, util.TerminalReset))
 }
 
 func ConvertToDocData(tf TermFreq) DocData {
