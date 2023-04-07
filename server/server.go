@@ -69,7 +69,7 @@ func handleApiCrawl(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 	bm25.ResetModel(model)
 
 	go func() {
-		webcrawler.CrawlDomainUpdateModel(urlToCrawl, model)
+		webcrawler.CrawlDomainUpdateModel(urlToCrawl, model, bm25.FileOpsImpl{}, 10000)
 		model.ModelLock.Lock()
 		model.Name = urlToCrawl
 		model.DA = float32(model.TermCount) / float32(model.DocCount)
@@ -289,7 +289,7 @@ func handleApiIndex(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 
 	bm25.ResetModel(model)
 
-	log.Println("Starting server and indexing directory: ", "./indexes/", requestBodyBytes)
+	log.Println("Starting server and indexing directory: ", "./indexes/", string(requestBodyBytes))
 	model.Name = string(requestBodyBytes)
 	go func() {
 		bm25.LoadCachedGobToModel("./indexes/"+string(requestBodyBytes), model)

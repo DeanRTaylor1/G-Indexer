@@ -53,6 +53,32 @@ type ResultsMap struct {
 	TF   float32 `json:"tf"`
 }
 
+type FileOps interface {
+	MkdirAll(dirName string, perm os.FileMode) error
+	CompressAndWriteGzipFile(filename string, data interface{}, dirName string) error
+}
+
+type FileOpsImpl struct{}
+
+func (f FileOpsImpl) MkdirAll(dirName string, perm os.FileMode) error {
+	return os.MkdirAll(dirName, perm)
+}
+
+func (f FileOpsImpl) CompressAndWriteGzipFile(filename string, data interface{}, dirName string) error {
+	return CompressAndWriteGzipFile(filename, data, dirName)
+}
+
+type FileOpsNoOp struct{}
+
+func (f FileOpsNoOp) MkdirAll(dirName string, perm os.FileMode) error {
+	return nil
+}
+
+func (f FileOpsNoOp) CompressAndWriteGzipFile(filename string, data interface{}, dirName string) error {
+	return nil
+}
+
+// This function is used to convert html string content (or any string) to a model as defined above
 func ConvertContentToModel(content string, path string, model *Model) {
 	tf := make(TermFreq)
 
@@ -67,8 +93,6 @@ func ConvertContentToModel(content string, path string, model *Model) {
 		}
 
 		tf[token] += 1
-		//stats := mapToSortedSlice(tf)
-		//log.Println(filePath, " => ", token, " => ", tf[token])
 	}
 
 	for token := range tf {
@@ -80,6 +104,7 @@ func ConvertContentToModel(content string, path string, model *Model) {
 
 }
 
+// This function is a utility function to filter out the bm25 results based on a predicate
 func FilterResults(results []ResultsMap, filter func(float32) bool) []ResultsMap {
 	var filteredResults []ResultsMap
 	for _, result := range results {
@@ -90,15 +115,15 @@ func FilterResults(results []ResultsMap, filter func(float32) bool) []ResultsMap
 	return filteredResults
 }
 
+// This function is used to reset the results (used in case the query is too generic and results are 0)
 func ResetResultsMap(result []ResultsMap) []ResultsMap {
-
 	for i := range result {
 		result[i] = ResultsMap{}
 	}
 	return result
-
 }
 
+// This function is used to convert the bm25 for a specific query
 func CalculateBm25(model *Model, query string) ([]ResultsMap, int) {
 	var result []ResultsMap
 
@@ -127,6 +152,7 @@ func CalculateBm25(model *Model, query string) ([]ResultsMap, int) {
 	return result, count
 }
 
+// This is used to reset the model before indexing a new dataset
 func ResetModel(model *Model) {
 	model.ModelLock.Lock()
 	defer model.ModelLock.Unlock()
@@ -142,6 +168,7 @@ func ResetModel(model *Model) {
 	model.IsComplete = false
 }
 
+// This function returns a new bm25 model
 func NewEmptyModel() *Model {
 	return &Model{
 		TFPD:            make(map[string]DocData),
@@ -152,6 +179,7 @@ func NewEmptyModel() *Model {
 	}
 }
 
+// This function is used to write and compress a datastructure to disk
 func CompressAndWriteGzipFile(fileName string, data interface{}, dirName string) error {
 	var compressedData bytes.Buffer
 	gzipWriter := gzip.NewWriter(&compressedData)
@@ -172,27 +200,13 @@ func CompressAndWriteGzipFile(fileName string, data interface{}, dirName string)
 	return nil
 }
 
+// Utility predicate function to check if a float32 is greater than 0
 func IsGreaterThanZero(value float32) bool {
 	return value > 0
 }
 
-// func getFileUrl(filePath string) (string, error) {
-// 	absolutePath, err := filepath.Abs(filePath)
-// 	if err != nil {
-// 		log.Println("unable to get absolute path", err)
-// 		return "", err
-// 	}
-
-// 	fileUrl := &url.URL{
-// 		Scheme: "file",
-// 		Path:   filepath.ToSlash(absolutePath),
-// 	}
-
-// 	return fileUrl.String(), nil
-
-// }
-
-func readUrlFiles(dirPath string, fileName string, model *Model) {
+// This function is used to read and decompress a datastructure from disk
+func readUrlFiles(dirPath string, fileName string, model *Model, reverse bool) {
 	compressedData, err := os.ReadFile(dirPath + "/" + fileName)
 	if err != nil {
 		log.Println(err)
@@ -205,8 +219,6 @@ func readUrlFiles(dirPath string, fileName string, model *Model) {
 		return
 	}
 
-	model.ModelLock.Lock()
-
 	decoder := gob.NewDecoder(gzipReader)
 	gzipReader.Close()
 	var decompressedURLFiles map[string]string
@@ -214,40 +226,17 @@ func readUrlFiles(dirPath string, fileName string, model *Model) {
 		log.Println(err)
 		return
 	}
-	model.UrlFiles = decompressedURLFiles
-
-	model.ModelLock.Unlock()
-	//log.Println("\033[32mmapped urls\033[0m")
-}
-
-func readReverseUrlFiles(dirPath string, fileName string, model *Model) {
-	compressedData, err := os.ReadFile(dirPath + "/" + fileName)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	gzipReader, err := gzip.NewReader(bytes.NewReader(compressedData))
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
 	model.ModelLock.Lock()
-
-	decoder := gob.NewDecoder(gzipReader)
-	gzipReader.Close()
-	var decompressedURLFiles map[string]string
-	if err := decoder.Decode(&decompressedURLFiles); err != nil {
-		log.Println(err)
-		return
+	if reverse {
+		model.ReverseUrlFiles = decompressedURLFiles
+	} else {
+		model.UrlFiles = decompressedURLFiles
 	}
-	model.ReverseUrlFiles = decompressedURLFiles
-
 	model.ModelLock.Unlock()
-	//log.Println("\033[32mmapped reverse urls\033[0m")
+
 }
 
+// This function is used to read and decompress a TermFreq from disk
 func readCompressedFilesToModel(dirPath string, fileName string, model *Model) {
 	compressedData, err := os.ReadFile(dirPath + "/" + fileName)
 	if err != nil {
@@ -276,17 +265,12 @@ func readCompressedFilesToModel(dirPath string, fileName string, model *Model) {
 		model.ModelLock.Lock()
 		model.DocCount += 1
 		model.ModelLock.Unlock()
-		//log.Println(filePath)
 		content := v.Content
-		//log.Println(filePath, content)
-
-		//fileSize := len(content)
-
-		//log.Println(filePath, " => ", fileSize)
 		ConvertContentToModel(content, filePath, model)
 	}
 }
 
+// This function is used to load a cached model from disk it handles the different types and redirects to the correct function
 func LoadCachedGobToModel(dirPath string, model *Model) {
 	//log.Println(dirPath)
 	dir, err := os.Open(dirPath)
@@ -303,11 +287,11 @@ func LoadCachedGobToModel(dirPath string, model *Model) {
 	for _, fi := range fileInfos {
 		done := map[string]bool{}
 		if fi.Name() == "url-files.gz" {
-			readUrlFiles(dirPath, fi.Name(), model)
+			readUrlFiles(dirPath, fi.Name(), model, false)
 			done[fi.Name()] = true
 		}
 		if fi.Name() == "reverse-url-files.gz" {
-			readReverseUrlFiles(dirPath, fi.Name(), model)
+			readUrlFiles(dirPath, fi.Name(), model, true)
 			done[fi.Name()] = true
 		}
 		if done["url-files.gz"] && done["reverse-url-files.gz"] {
@@ -324,6 +308,8 @@ func LoadCachedGobToModel(dirPath string, model *Model) {
 	logger.HandleLog(fmt.Sprintf("\n------------------\n%sFINISHED LOADING MODEL%s\n------------------\n", util.TerminalGreen, util.TerminalReset))
 }
 
+// This function converts the the TermFreq to a DocData struct which includes the termfreq and the
+// total number of terms in the document
 func ConvertToDocData(tf TermFreq) DocData {
 	var termCount int
 
@@ -339,6 +325,7 @@ func ConvertToDocData(tf TermFreq) DocData {
 	return *docData
 }
 
+// Compute TF for a term in a document using bm25 calculation not tfidf
 func ComputeTF(t string, n int, d TermFreq, DA float32) float32 {
 	//t is the term we are looking for
 	//n is the total number of terms (not unique) in the document
@@ -354,6 +341,7 @@ func ComputeTF(t string, n int, d TermFreq, DA float32) float32 {
 	return 0
 }
 
+// Compute IDF for a term in a document using bm25 calculation not tfidf
 func ComputeIDF(t string, N int, df DocFreq) float32 {
 	//N The total number of documents in the collection.
 
@@ -371,16 +359,3 @@ func ComputeIDF(t string, N int, df DocFreq) float32 {
 	//Calculate the IDF using the formula log(N/M), where N is the total number of documents in the collection and M is the number of documents that contain the term t.
 	return float32(math.Log10(n / M))
 }
-
-// type FileWriter func([]byte, string)
-
-// func ModelToJSON(m Model, createFile bool, filename string, fileWriter FileWriter) string {
-// 	b, err := json.Marshal(m)
-// 	if err != nil {
-// 		log.Println("error:", err)
-// 	}
-// 	if createFile {
-// 		fileWriter(b, filename)
-// 	}
-// 	return string(b)
-// }

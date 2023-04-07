@@ -30,7 +30,7 @@ func extractDomain(rawURL string) string {
 	return parsedURL.Host
 }
 
-const maxURLsToCrawl = 10000
+// const maxURLsToCrawl = 10000
 
 func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName string, errChan chan<- error, cachedDataMutex *sync.Mutex, cachedData *map[string]util.IndexedData, model *bm25.Model) {
 	// Start go routine, send urls to foundUrl Channel
@@ -115,7 +115,7 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 
 }
 
-func CrawlDomainUpdateModel(domain string, model *bm25.Model) {
+func CrawlDomainUpdateModel(domain string, model *bm25.Model, fileOps bm25.FileOps, urlLimit int) {
 	logger.HandleLog(fmt.Sprintf("crawling domain: %s", domain))
 	//Start timer for benchmarking
 	start := time.Now()
@@ -141,7 +141,7 @@ func CrawlDomainUpdateModel(domain string, model *bm25.Model) {
 		log.Println(err)
 	}
 	dirName := fmt.Sprint("indexes/" + fullUrl.Host)
-	err = os.MkdirAll(dirName, os.ModePerm)
+	err = fileOps.MkdirAll(dirName, os.ModePerm)
 
 	if err != nil {
 		log.Println(err)
@@ -180,7 +180,7 @@ outerLoop:
 		case newURL := <-foundUrls:
 			visitedMutex.Lock()
 			numberOfVisitedURLs := len(visited)
-			if numberOfVisitedURLs >= maxURLsToCrawl {
+			if numberOfVisitedURLs >= urlLimit {
 				//If we have reached the max number of urls to crawl, we can stop the crawler, this is a failsafe for testing and to stop the crawler from running forever
 				visitedMutex.Unlock()
 				model.ModelLock.Lock()
@@ -189,28 +189,26 @@ outerLoop:
 
 				//Write the cached data to disk
 				cachedDataMutex.Lock()
-				err := bm25.CompressAndWriteGzipFile("indexed-data.gz", cachedData, dirName)
+				err := fileOps.CompressAndWriteGzipFile("indexed-data.gz", cachedData, dirName)
 				if err != nil {
 					log.Fatal(err)
 				}
 				cachedDataMutex.Unlock()
 				//Write the url files to disk
 				urlsMutex.Lock()
-				err = bm25.CompressAndWriteGzipFile("url-files.gz", urlFiles, dirName)
+				err = fileOps.CompressAndWriteGzipFile("url-files.gz", urlFiles, dirName)
 				if err != nil {
 					log.Fatal(err)
 				}
 				urlsMutex.Unlock()
 				//Write the reverse url files to disk
 				reverseUrlsMutex.Lock()
-				err = bm25.CompressAndWriteGzipFile("reverse-url-files.gz", reverseUrlFiles, dirName)
+				err = fileOps.CompressAndWriteGzipFile("reverse-url-files.gz", reverseUrlFiles, dirName)
 				if err != nil {
 					log.Fatal(err)
 				}
 				reverseUrlsMutex.Unlock()
-				log.Println("\033[31m------------------------------------")
-				log.Println("\033[31mFINISHED CRAWLING LIMIT REACHED")
-				log.Println("\033[31m------------------------------------\033[0m")
+				logger.HandleLog(fmt.Sprintf("\n%s------------------------------------\nFINISHED CRAWLING %d PAGE LIMIT REACHED\n------------------------------------%s\n", util.TerminalRed, urlLimit, util.TerminalReset))
 				break outerLoop
 			}
 			// If the URL has already been visited, skip it
@@ -265,29 +263,27 @@ outerLoop:
 			model.ModelLock.Unlock()
 
 			cachedDataMutex.Lock()
-			err := bm25.CompressAndWriteGzipFile("indexed-data.gz", cachedData, dirName)
+			err := fileOps.CompressAndWriteGzipFile("indexed-data.gz", cachedData, dirName)
 			if err != nil {
 				log.Fatal(err)
 			}
 			cachedDataMutex.Unlock()
 
 			urlsMutex.Lock()
-			err = bm25.CompressAndWriteGzipFile("url-files.gz", urlFiles, dirName)
+			err = fileOps.CompressAndWriteGzipFile("url-files.gz", urlFiles, dirName)
 			if err != nil {
 				log.Fatal(err)
 			}
 			urlsMutex.Unlock()
 
 			reverseUrlsMutex.Lock()
-			err = bm25.CompressAndWriteGzipFile("reverse-url-files.gz", reverseUrlFiles, dirName)
+			err = fileOps.CompressAndWriteGzipFile("reverse-url-files.gz", reverseUrlFiles, dirName)
 			if err != nil {
 				log.Fatal(err)
 			}
 			reverseUrlsMutex.Unlock()
 			elapsed := time.Since(start)
-			log.Printf("\n\033[32m------------------------------------" + util.TerminalReset)
-			fmt.Printf("\033[32mFINISHED CRAWLING %v in %dMs%v\n", fullUrl.Host, elapsed.Milliseconds(), util.TerminalReset)
-			log.Printf("\033[32m------------------------------------\033[0m\n")
+			logger.HandleLog(fmt.Sprintf("\n%s------------------------------------\nFINISHED CRAWLING  %v in %dMs\n------------------------------------%s\n", util.TerminalGreen, fullUrl.Host, elapsed.Milliseconds(), util.TerminalReset))
 			return
 		}
 	}
