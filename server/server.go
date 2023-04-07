@@ -42,6 +42,7 @@ type ProgressResponseData struct {
 	Value interface{} `json:"data_value"`
 }
 
+// Server route to initialize the crawl on a go routine
 func handleApiCrawl(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 	requestBodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -97,6 +98,7 @@ func handleApiCrawl(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 
 }
 
+// Server route to get the status of the crawl and index
 func handleApiProgress(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 	model.ModelLock.Lock()
 	defer model.ModelLock.Unlock()
@@ -157,6 +159,7 @@ func handleApiProgress(w http.ResponseWriter, r *http.Request, model *bm25.Model
 	}
 }
 
+// Server route to start the search on a go routine
 func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 	start := time.Now()
 	stemmer, err := snowball.New("english")
@@ -237,6 +240,7 @@ func handleApiSearch(w http.ResponseWriter, r *http.Request, model *bm25.Model) 
 
 }
 
+// Server route to get the available indexes in the users index directory if there are any
 func handleApiIndexes(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 	directories := util.GetCurrentAvailableModelDirectories()
 
@@ -259,6 +263,7 @@ func handleApiIndexes(w http.ResponseWriter, r *http.Request, model *bm25.Model)
 
 }
 
+// Server route to start indexing an existing directory and add it to the model
 func handleApiIndex(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 	log.Println("received")
 	requestBodyBytes, err := io.ReadAll(r.Body)
@@ -312,6 +317,7 @@ func handleApiIndex(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 	}
 }
 
+// Route handler
 func handleRequests(model *bm25.Model) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Println(r.Method, r.URL.Path)
@@ -341,7 +347,6 @@ func handleRequests(model *bm25.Model) http.HandlerFunc {
 			fmt.Fprint(w, "404 Not Found")
 
 		}
-
 	}
 }
 

@@ -13,6 +13,7 @@ type IndexedData struct {
 	Content string // Or any other data structure used for storing indexed content
 }
 
+// Utility function, deprecated
 func JSONToFile(j []byte, filename string) {
 	fmt.Println("j length:", len(j)) // debugging line
 	f, err := os.Create(filename)
@@ -34,6 +35,7 @@ func JSONToFile(j []byte, filename string) {
 	}
 }
 
+// Utility function, deprecated
 func MapToJSON(m map[string]string, createFile bool, filename string) string {
 	// Convert map[string]string to map[string]interface{}
 	mi := make(map[string]interface{}, len(m))
@@ -44,6 +46,7 @@ func MapToJSON(m map[string]string, createFile bool, filename string) string {
 	return MapToJSONGeneric(mi, createFile, filename)
 }
 
+// Utility function, deprecated
 func MapToJSONGeneric(m map[string]interface{}, createFile bool, filename string) string {
 	if len(m) == 0 {
 		fmt.Println("map is empty")
@@ -61,6 +64,7 @@ func MapToJSONGeneric(m map[string]interface{}, createFile bool, filename string
 	return string(b)
 }
 
+// This function is used to find all the pre-existing indexes
 func GetCurrentAvailableModelDirectories() []string {
 	files, err := os.ReadDir("./indexes")
 	if err != nil {
@@ -84,6 +88,7 @@ func GetCurrentAvailableModelDirectories() []string {
 	return directories
 }
 
+// This function checks that a dir exists
 func CheckDirIsValid(dirName string) (bool, error) {
 	_, err := os.Stat("./" + dirName)
 	if err != nil {
@@ -95,6 +100,8 @@ func CheckDirIsValid(dirName string) (bool, error) {
 	return true, nil // Directory exists
 }
 
+// This function is used to calculate the directory length or the total number of documents within a directory.
+// Deprecated
 func GetDirLength(dirName string) int {
 	files, err := os.ReadDir("./" + dirName)
 	if err != nil {
@@ -104,6 +111,7 @@ func GetDirLength(dirName string) int {
 	return len(files)
 }
 
+// Const variables to enable terminal colors
 const (
 	TerminalReset  = "\033[0m"
 	TerminalRed    = "\033[31m"
