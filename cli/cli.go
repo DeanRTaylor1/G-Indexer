@@ -18,6 +18,9 @@ import (
 	"github.com/tebeka/snowball"
 )
 
+//CLI Interface of GoSearch
+
+// Utility function to show the user the current status of the indexing and crawling processes
 func logStatus(indexing, crawling bool, model *bm25.Model) {
 	indexState := "✓"
 	if indexing {
@@ -38,10 +41,12 @@ func logStatus(indexing, crawling bool, model *bm25.Model) {
 	fmt.Println("Type your query or press Ctrl+C to exit")
 }
 
+// Clean up the CLI response to remove the bullet point
 func formatCliResponse(response string) string {
 	return strings.Replace(response, "○ ", "", -1)
 }
 
+// Utility function to get a single input from the user
 func getSingleInputPrompt(message string) string {
 	prompt := &survey.Input{
 		Message: message,
@@ -56,11 +61,12 @@ func getSingleInputPrompt(message string) string {
 	return input
 }
 
+// Utility function to get the website to crawl
 func GetNewWebsitePrompt() string {
 	return getSingleInputPrompt("Enter a website to crawl:")
-
 }
 
+// Start the CLI
 func InitialPrompt(model *bm25.Model) {
 	files, err := os.ReadDir("./indexes")
 	if err != nil {
@@ -116,6 +122,7 @@ func InitialPrompt(model *bm25.Model) {
 	}
 }
 
+// Get the query from the user to search the model
 func StartQueryPrompt(model *bm25.Model) {
 
 	prompt := &survey.Input{
@@ -132,6 +139,7 @@ func StartQueryPrompt(model *bm25.Model) {
 	startQuery(query, model)
 }
 
+// Start the query process
 func startQuery(query string, model *bm25.Model) {
 
 	start := time.Now()
@@ -238,6 +246,7 @@ func startQuery(query string, model *bm25.Model) {
 
 }
 
+// Open the browser to the selected link depending on OS
 func openBrowser(link string) {
 	fmt.Println(link)
 	var cmd *exec.Cmd
@@ -255,6 +264,7 @@ func openBrowser(link string) {
 	}
 }
 
+// Start the go routine to crawl the website.
 func InitCrawl(domain string, model *bm25.Model) {
 
 	_, err := url.ParseRequestURI(domain)

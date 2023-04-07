@@ -290,6 +290,7 @@ outerLoop:
 
 }
 
+// Convert the url to a formatted name
 func urlToName(urlPath string) string {
 	// Remove common file extensions
 	urlPath = strings.TrimSuffix(urlPath, ".html")

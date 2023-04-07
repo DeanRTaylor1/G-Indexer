@@ -21,22 +21,26 @@ type stat struct {
 	freq  int
 }
 
+// NewLexer creates a new Lexer
 func NewLexer(content string) *Lexer {
 	return &Lexer{[]rune(content)}
 }
 
+// TrimLeft trims empty spaces from the left of the content
 func (l *Lexer) TrimLeft() {
 	for len(l.content) > 0 && unicode.IsSpace(rune(l.content[0])) {
 		l.content = l.content[1:]
 	}
 }
 
+// Chop chops the content by n and returns the chopped content
 func (l *Lexer) Chop(n int) (token []rune) {
 	token = l.content[:n]
 	l.content = l.content[n:]
 	return token
 }
 
+// ChopWhile chops the content while the predicate f returns true
 func (l *Lexer) ChopWhile(f func(rune) bool) (token []rune) {
 	n := 0
 	for n < len(l.content) && f(l.content[n]) {
@@ -45,6 +49,7 @@ func (l *Lexer) ChopWhile(f func(rune) bool) (token []rune) {
 	return l.Chop(n)
 }
 
+// NextToken returns the next token
 func (l *Lexer) NextToken() []rune {
 
 	l.TrimLeft()
@@ -73,6 +78,7 @@ func (l *Lexer) NextToken() []rune {
 	return l.Chop(1)
 }
 
+// Next returns the next token as a string
 func (l *Lexer) Next() (string, error) {
 
 	token := l.NextToken()
@@ -82,6 +88,7 @@ func (l *Lexer) Next() (string, error) {
 	return (string(token)), nil
 }
 
+// Tokenize parses a html string and returns all the links as a slice of strings
 func ParseLinks(htmlContent string) []string {
 	links := []string{}
 	nodes, err := html.Parse(strings.NewReader(htmlContent))
@@ -105,6 +112,7 @@ func ParseLinks(htmlContent string) []string {
 	return links
 }
 
+// Tokenize parses a html string and returns all the words in the document as a slice of strings
 func ParseHtmlTextContent(htmlContent string) string {
 	var content string
 
@@ -120,6 +128,7 @@ func ParseHtmlTextContent(htmlContent string) string {
 	}
 }
 
+// Utility function to sort a map by value
 func MapToSortedSlice(m map[string]int) (stats []stat) {
 	for k, v := range m {
 		stats = append(stats, struct {
@@ -131,16 +140,3 @@ func MapToSortedSlice(m map[string]int) (stats []stat) {
 
 	return stats
 }
-
-// func LogStats(filePath string, stats []stat, topN int) {
-// 	fmt.Println(filePath)
-// 	if len(stats) < topN {
-// 		for _, v := range stats {
-// 			fmt.Println(v.token, " => ", v.freq)
-// 		}
-// 	} else {
-// 		for _, v := range stats[:topN] {
-// 			fmt.Println(v.token, " => ", v.freq)
-// 		}
-// 	}
-// }

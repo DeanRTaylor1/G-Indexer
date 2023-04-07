@@ -2,8 +2,138 @@ package bm25
 
 import (
 	"math"
+	"os"
+	"path"
 	"testing"
 )
+
+type TestData struct {
+	Name  string
+	Value int
+}
+
+func TestCompressAndWriteGZipFile(t *testing.T) { // Prepare test data
+	filOpsImpl := FileOpsImpl{}
+
+	data := TestData{
+		Name:  "Test",
+		Value: 42,
+	}
+
+	// Define file name and directory name
+	fileName := "testfile.gz"
+	dirName := "testdir"
+
+	// Create a temporary directory
+	if err := filOpsImpl.MkdirAll(dirName, 0755); err != nil {
+		t.Fatalf("Failed to create temporary directory: %v", err)
+	}
+
+	// Call the CompressAndWriteGzipFile function
+	if err := filOpsImpl.CompressAndWriteGzipFile(fileName, data, dirName); err != nil {
+		t.Fatalf("Failed to compress and write gzip file: %v", err)
+	}
+
+	// Check if the file exists
+	filePath := path.Join(dirName, fileName)
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		t.Fatalf("File %s does not exist", filePath)
+	}
+
+	// Clean up: remove the file and the temporary directory
+	if err := os.Remove(filePath); err != nil {
+		t.Fatalf("Failed to remove temporary file: %v", err)
+	}
+
+	if err := os.Remove(dirName); err != nil {
+		t.Fatalf("Failed to remove temporary directory: %v", err)
+	}
+
+	fileOpsNoImpl := FileOpsNoOp{}
+
+	if err := fileOpsNoImpl.MkdirAll(dirName, 0755); err != nil {
+		t.Fatalf("Error should be nil as this is a mocking DI: %v", err)
+	}
+	fileOpsNoImpl.CompressAndWriteGzipFile(fileName, data, dirName)
+	// Check if the file exists
+
+	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+		t.Fatalf("File %s does not exist", filePath)
+	}
+
+	// Clean up: remove the file and the temporary directory
+	if err := os.Remove(filePath); err == nil {
+		t.Fatalf("Expected error when removing non-existent temporary file: %v", err)
+	}
+
+	if err := os.Remove(dirName); err == nil {
+		t.Fatalf("Expected error when removing temporary directory: %v", err)
+	}
+
+}
+
+func TestFilterResults(t *testing.T) {
+	results := []ResultsMap{
+		{
+			Name: "test",
+			Path: "test",
+			TF:   1,
+		}, {
+			Name: "test2",
+			Path: "test2",
+			TF:   0,
+		},
+	}
+
+	filtered := FilterResults(results, IsGreaterThanZero)
+
+	if len(filtered) != 1 {
+		t.Errorf("FilterResults().len(filtered) == %d, want 1", len(filtered))
+	}
+
+	filtered = FilterResults(results, func(x float32) bool {
+		return x > 1
+	})
+
+	if len(filtered) != 0 {
+		t.Errorf("FilterResults().len(filtered) == %d, want 0", len(filtered))
+	}
+}
+
+func TestResetResultsMap(t *testing.T) {
+
+	results := []ResultsMap{
+		{
+			Name: "test",
+			Path: "test",
+			TF:   1,
+		},
+	}
+
+	ResetResultsMap(results)
+
+	if len(results) != 1 {
+		t.Errorf("ResetResultsMap().len(results) == 0, want non-zero")
+	}
+
+}
+
+func TestCalculateBm25(t *testing.T) {
+	model := NewEmptyModel()
+
+	LoadCachedGobToModel("../test-data/javascript.info", model)
+
+	result, count := CalculateBm25(model, "javascript")
+
+	if count < 1 {
+		t.Errorf("CalculateBm25().count == %d, want greater than 1", count)
+	}
+
+	if len(result) == 0 {
+		t.Errorf("CalculateBm25().len(result) == 0, want non-zero")
+	}
+
+}
 
 func TestNewEmptyModel(t *testing.T) {
 	model := NewEmptyModel()

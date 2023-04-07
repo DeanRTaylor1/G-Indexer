@@ -22,6 +22,10 @@ type Model struct {
 	DF   DocFreq
 }
 
+// This function computes the term frequency for each document in a corpus and returns a map of the term frequencies for each document
+// this uses tfidf and it is a backup to bm25 as
+// the bm25 gets better results but can return 0 if the term is generic where as tfidf will increase the rank
+// of the document if the term is generic
 func CalculateTfidf(model *bm25.Model, query string) ([]bm25.ResultsMap, int) {
 	var result []bm25.ResultsMap
 	var count int
@@ -47,6 +51,7 @@ func CalculateTfidf(model *bm25.Model, query string) ([]bm25.ResultsMap, int) {
 	return result, count
 }
 
+// This function computes the term frequency of a given term in a document using tfidf
 func ComputeTF(t string, N int, d TermFreq) float32 {
 	//T is the term we are looking for
 	//N is the total number of terms (not unique) in the document
@@ -57,6 +62,8 @@ func ComputeTF(t string, N int, d TermFreq) float32 {
 	return 0
 }
 
+// Compute Inverse document frequency, that is to say, it computes the importance of a term in the collection.
+// By seeing how frequent it is in all other documents vs the current document.
 func ComputeIDF(t string, N int, df DocFreq) float32 {
 	//N The total number of documents in the collection.
 
