@@ -33,78 +33,64 @@ func extractDomain(rawURL string) string {
 const maxURLsToCrawl = 10000
 
 func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName string, errChan chan<- error, cachedDataMutex *sync.Mutex, cachedData *map[string]util.IndexedData, model *bm25.Model) {
-	// Add your web crawling logic here
-	// When you find a new URL, send it to the channel: foundUrls <- newURL
-
-	// log.Println("initiating get request to ", urlToCrawl)
+	// Start go routine, send urls to foundUrl Channel
+	//Send get request
+	logger.HandleLog(fmt.Sprintf("Initiating get request to %s", urlToCrawl))
 	resp, err := http.Get(urlToCrawl)
 
 	if err != nil {
 		errChan <- fmt.Errorf("error accessing site file: %w", err)
 		return
 	}
-
 	defer resp.Body.Close()
-	//log.Println("accessing http body", urlToCrawl)
-	body, err := io.ReadAll(resp.Body)
 
+	//Read html body
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		errChan <- fmt.Errorf("error reading html response body: %w", err)
 		return
 	}
 
+	//get the full Url for later use
 	fullUrl, err := url.Parse(urlToCrawl)
 	if err != nil {
 		log.Println(err)
 	}
 
+	//Prse html text tokens
 	textContent := lexer.ParseHtmlTextContent(string(body))
-
+	//Create model of indexed data for storage
 	IndexedData := util.IndexedData{
 		URL:     urlToCrawl,
 		Content: textContent,
 	}
 
+	//Cache the data, ensure we lock the model before accessing, this is used for disk storage
 	cachedDataMutex.Lock()
 	(*cachedData)[urlToCrawl] = IndexedData
 	cachedDataMutex.Unlock()
 
+	//Update the model so that we can send progress to the end user
 	model.ModelLock.Lock()
 	model.DirLength += 1
 	model.ModelLock.Unlock()
+
+	//Prepare content for parsing
+	content := IndexedData.Content
+
+	fileSize := len(content)
+	logger.HandleLog(fmt.Sprintf("%s => %v", IndexedData.URL, fileSize))
+	// tf := make(bm25.TermFreq)
+	bm25.ConvertContentToModel(content, IndexedData.URL, model)
 
 	model.ModelLock.Lock()
 	model.DocCount += 1
 	model.ModelLock.Unlock()
 
-	content := IndexedData.Content
-
-	// fileSize := len(content)
-
-	// log.Println(IndexedData.URL, " => ", fileSize)
-	tf := make(bm25.TermFreq)
-
-	tokenLexer := lexer.NewLexer(content)
-	for {
-		token, err := tokenLexer.Next()
-		if err != nil {
-			//log.Println("EOF")
-			break
-		}
-
-		tf[token] += 1
-	}
-	model.ModelLock.Lock()
-	for token := range tf {
-		model.TermCount += 1
-		model.DF[token] += 1
-	}
-	model.TFPD[IndexedData.URL] = bm25.ConvertToDocData(tf)
-	model.ModelLock.Unlock()
-
 	// extract the links from the file
 	links := lexer.ParseLinks(string(body))
 
+	//Parse the links
 	for _, link := range links {
 		// log.Println(link)
 		if shouldIgnoreLink(link) {
@@ -118,11 +104,9 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 		}
 
 		if !parsedLink.IsAbs() {
-			// log.Println("link is relative")
-			// Resolve the relative link against the base URL
+			// Resolve the relative link against the base URL to ensure we don't leave our current domain
 			resolvedLink := fullUrl.ResolveReference(parsedLink)
 			link = resolvedLink.String()
-			// log.Println("new link", link)
 		}
 
 		foundUrls <- link
@@ -132,38 +116,47 @@ func crawlPageUpdateModel(urlToCrawl string, foundUrls chan<- string, dirName st
 }
 
 func CrawlDomainUpdateModel(domain string, model *bm25.Model) {
-	log.Println("crawling domain: ", domain)
+	logger.HandleLog(fmt.Sprintf("crawling domain: %s", domain))
+	//Start timer for benchmarking
 	start := time.Now()
+	//Initiate data models
 	cachedData := make(map[string]util.IndexedData)
+	//Keep a track of Visited urls
 	visited := make(map[string]bool)
+
+	//These two maps are used to store the url and the file name for later mapping to the user.
+	//We store both to save time on the reverse lookup
 	urlFiles := make(map[string]string)
 	reverseUrlFiles := make(map[string]string)
 
+	//Mutexes for each shared data structure
 	cachedDataMutex := sync.Mutex{}
 	visitedMutex := sync.Mutex{}
 	urlsMutex := sync.Mutex{}
 	reverseUrlsMutex := sync.Mutex{}
 
+	//Create a directory for the domain in the indexes folder
 	fullUrl, err := url.Parse(domain)
 	if err != nil {
 		log.Println(err)
 	}
 	dirName := fmt.Sprint("indexes/" + fullUrl.Host)
-	// log.Println("creating dir", dirName)
-
 	err = os.MkdirAll(dirName, os.ModePerm)
-	model.ModelLock.Lock()
-	model.Name = fullUrl.Host
-	model.ModelLock.Unlock()
 
 	if err != nil {
 		log.Println(err)
 		log.Fatal(err)
 	}
 
+	//Update the model name for the user
+	model.ModelLock.Lock()
+	model.Name = fullUrl.Host
+	model.ModelLock.Unlock()
+
 	// Use a buffered channel to store found URLs
 	foundUrls := make(chan string, 100)
 	errChan := make(chan error, 100)
+
 	// Use a WaitGroup to track the number of active goroutines
 	var wg sync.WaitGroup
 
@@ -182,33 +175,33 @@ func CrawlDomainUpdateModel(domain string, model *bm25.Model) {
 
 outerLoop:
 	for {
-
+		//Loop through the found urls and crawl them
 		select {
 		case newURL := <-foundUrls:
-			// log.Println("Received new URL: ", newURL, "")
 			visitedMutex.Lock()
 			numberOfVisitedURLs := len(visited)
 			if numberOfVisitedURLs >= maxURLsToCrawl {
-				// log.Println("Reached max number of URLs to crawl: ", maxURLsToCrawl)
+				//If we have reached the max number of urls to crawl, we can stop the crawler, this is a failsafe for testing and to stop the crawler from running forever
 				visitedMutex.Unlock()
 				model.ModelLock.Lock()
 				model.IsComplete = true
 				model.ModelLock.Unlock()
 
+				//Write the cached data to disk
 				cachedDataMutex.Lock()
 				err := bm25.CompressAndWriteGzipFile("indexed-data.gz", cachedData, dirName)
 				if err != nil {
 					log.Fatal(err)
 				}
 				cachedDataMutex.Unlock()
-
+				//Write the url files to disk
 				urlsMutex.Lock()
 				err = bm25.CompressAndWriteGzipFile("url-files.gz", urlFiles, dirName)
 				if err != nil {
 					log.Fatal(err)
 				}
 				urlsMutex.Unlock()
-
+				//Write the reverse url files to disk
 				reverseUrlsMutex.Lock()
 				err = bm25.CompressAndWriteGzipFile("reverse-url-files.gz", reverseUrlFiles, dirName)
 				if err != nil {
@@ -222,7 +215,6 @@ outerLoop:
 			}
 			// If the URL has already been visited, skip it
 			if visited[newURL] {
-				// log.Println("URL already visited: ", newURL)
 				visitedMutex.Unlock()
 				continue
 			}
@@ -237,18 +229,19 @@ outerLoop:
 				continue
 			}
 
-			// log.Println("URL is new, adding to the queue: ", newURL)
 			urlPath, err := url.Parse(newURL)
 			if err != nil {
 				log.Println(err)
 			}
 			fileName := urlToName(urlPath.Path)
-			// log.Println("Filename: ", fileName)
+
+			//Add the url and file name to the maps
 			urlsMutex.Lock()
 			urlFiles[newURL] = fileName
 			reverseUrlFiles[fileName] = newURL
 			urlsMutex.Unlock()
 
+			//Add the url and file name to the model so that the user can access them immediately
 			reverseUrlsMutex.Lock()
 			model.ReverseUrlFiles[fileName] = newURL
 			reverseUrlsMutex.Unlock()
@@ -259,17 +252,13 @@ outerLoop:
 
 			wg.Add(1)
 			go func(urlToCrawl string) {
-				// visitedMutex.Lock()
-				//numberOfVisitedURLs := len(visited)
-				//log.Println("Number of visited URLs: ", numberOfVisitedURLs)
-				// visitedMutex.Unlock()
 				defer wg.Done()
 				crawlPageUpdateModel(urlToCrawl, foundUrls, dirName, errChan, &cachedDataMutex, &cachedData, model)
 			}(newURL)
-
+		//If there is an error, log it and continue
 		case err := <-errChan:
 			logger.HandleError(err)
-
+		//If the crawler is complete, write the data to disk
 		case <-done:
 			model.ModelLock.Lock()
 			model.IsComplete = true
@@ -339,6 +328,7 @@ func urlToName(urlPath string) string {
 	return ""
 }
 
+// We don't want to crawl files that are not html as our search engine is text based
 var ignoredExtensions = map[string]bool{
 	".zip": true, ".tar": true, ".gz": true, ".rar": true, ".7z": true,
 	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".bmp": true, ".svg": true, ".webp": true,
@@ -349,6 +339,7 @@ var ignoredExtensions = map[string]bool{
 	".ttf": true, ".otf": true, ".woff": true, ".woff2": true,
 }
 
+// shouldIgnoreLink returns true if the link should be ignored
 func shouldIgnoreLink(link string) bool {
 	parsedURL, err := url.Parse(link)
 	if err != nil {

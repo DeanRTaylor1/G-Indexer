@@ -8,3 +8,7 @@ import "fmt"
 func HandleError(err error) {
 	fmt.Printf("Dev Mode - Error: %v\n", err)
 }
+
+func HandleLog(log string) {
+	fmt.Println(log)
+}
