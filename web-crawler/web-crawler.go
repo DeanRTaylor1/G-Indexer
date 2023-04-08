@@ -333,7 +333,7 @@ var ignoredExtensions = map[string]bool{
 	".mp4": true, ".avi": true, ".mkv": true, ".flv": true, ".mov": true, ".wmv": true, ".webm": true,
 	".pdf": true, ".doc": true, ".docx": true, ".xls": true, ".xlsx": true, ".ppt": true, ".pptx": true, ".pages": true, ".key": true, ".numbers": true,
 	".exe": true, ".msi": true, ".bin": true, ".dmg": true, ".apk": true, ".deb": true, ".rpm": true,
-	".ttf": true, ".otf": true, ".woff": true, ".woff2": true,
+	".ttf": true, ".otf": true, ".woff": true, ".woff2": true, "json": true,
 }
 
 // shouldIgnoreLink returns true if the link should be ignored

@@ -101,7 +101,6 @@ func handleApiCrawl(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 // Server route to get the status of the crawl and index
 func handleApiProgress(w http.ResponseWriter, r *http.Request, model *bm25.Model) {
 	model.ModelLock.Lock()
-	defer model.ModelLock.Unlock()
 
 	if model.DocCount == 0 {
 		response := ProgressResponse{
@@ -119,8 +118,10 @@ func handleApiProgress(w http.ResponseWriter, r *http.Request, model *bm25.Model
 		_, err = w.Write(jsonBytes)
 		if err != nil {
 			log.Println(err)
+			model.ModelLock.Unlock()
 			return
 		}
+		model.ModelLock.Unlock()
 		return
 	}
 	indexName := model.Name
@@ -135,7 +136,7 @@ func handleApiProgress(w http.ResponseWriter, r *http.Request, model *bm25.Model
 	} else {
 		message = "In Progress"
 	}
-
+	model.ModelLock.Unlock()
 	response := ProgressResponse{
 		Message:       message,
 		IsComplete:    isComplete,

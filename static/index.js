@@ -43,7 +43,7 @@ function showResults() {
 
 async function search(event, query) {
   event.preventDefault();
-  console.log(query);
+  //console.log(query);
   results.innerHTML = "";
   progressBox.innerText = "";
 
@@ -66,8 +66,9 @@ async function search(event, query) {
     title.href = result.path;
 
     title.classList.add("result-title");
-    console.log(result.name);
-    title.innerText = `${result.name.length === 1 ? result.path : result.name}`;
+    // console.log(result.name);
+    // console.log(result.name.length);
+    title.innerText = `${result.name.length === 0 ? result.path : result.name}`;
     title.target = "_blank";
 
     let url = document.createElement("div");
@@ -90,7 +91,7 @@ const checkProgress = async () => {
   try {
     let apiResult;
     const interval = setInterval(async () => {
-      console.log("ping");
+      //console.log("ping");
       const response = await fetch("/api/progress", {
         method: "GET",
         headers: {
@@ -193,7 +194,7 @@ const getIndexes = async () => {
       },
     });
     const apiResult = await response.json();
-    console.log(apiResult);
+    //console.log(apiResult);
     populateIndexSelect(apiResult.Data);
   } catch (error) {
     console.log(error);
@@ -206,7 +207,7 @@ const startIndex = async (event) => {
   resultsTitle.style.display = "none";
 
   const index = indexSelect.value;
-  console.log(index);
+  ///index);
   if (index === "Select an index") {
     return;
   }
@@ -220,7 +221,7 @@ const startIndex = async (event) => {
       body: index,
     });
     const apiResult = await response.json();
-    console.log(apiResult);
+    // console.log(apiResult);
     showLoadingCircle();
     timer = setTimeout(() => {
       checkProgress();
