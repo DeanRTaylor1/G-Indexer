@@ -84,8 +84,7 @@ func ConvertContentToModel(content string, path string, model *Model) {
 	tf := make(TermFreq)
 
 	lexer := lexer.NewLexer(content)
-	model.ModelLock.Lock()
-	defer model.ModelLock.Unlock()
+
 	for {
 		token, err := lexer.Next()
 		if err != nil {
@@ -95,14 +94,16 @@ func ConvertContentToModel(content string, path string, model *Model) {
 
 		tf[token] += 1
 	}
+	model.ModelLock.Lock()
 
 	for token := range tf {
 		model.TermCount += 1
 		model.DF[token] += 1
 	}
-
+	model.ModelLock.Unlock()
+	model.ModelLock.Lock()
 	model.TFPD[path] = ConvertToDocData(tf)
-
+	model.ModelLock.Unlock()
 }
 
 // This function is a utility function to filter out the bm25 results based on a predicate
